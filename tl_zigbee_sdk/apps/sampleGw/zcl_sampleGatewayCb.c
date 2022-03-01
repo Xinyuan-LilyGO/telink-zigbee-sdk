@@ -114,12 +114,46 @@ static ev_timer_event_t *identifyTimerEvt = NULL;
 void sampleGW_zclProcessIncomingMsg(zclIncoming_t *pInHdlrMsg)
 {
 //	printf("sampleGW_zclProcessIncomingMsg\n");
+	u8 array[64];
+	memset(array, 0, 64);
+
+	u16 dataLen = 0;
+	u8 *pBuf = array;
 
 	switch(pInHdlrMsg->hdr.cmd)
 	{
 #ifdef ZCL_READ
 		case ZCL_CMD_READ_RSP:
-			sampleGW_zclReadRspCmd(pInHdlrMsg->attrCmd);
+			// sampleGW_zclReadRspCmd(pInHdlrMsg->attrCmd);
+			{
+				zclReadRspCmd_t *pReadRspCmd = (zclReadRspCmd_t *)pInHdlrMsg->attrCmd;
+
+				*pBuf++ = pInHdlrMsg->hdr.seqNum;
+				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+				*pBuf++ = pInHdlrMsg->msg->indInfo.src_ep;
+				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
+				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
+				*pBuf++ = pReadRspCmd->numAttr;
+				for(u8 i = 0; i < pReadRspCmd->numAttr; i++){
+					*pBuf++ = HI_UINT16(pReadRspCmd->attrList[i].attrID);
+					*pBuf++ = LO_UINT16(pReadRspCmd->attrList[i].attrID);
+					*pBuf++ = pReadRspCmd->attrList[i].status;
+					if(pReadRspCmd->attrList[i].status == ZCL_STA_SUCCESS){
+						*pBuf++ = pReadRspCmd->attrList[i].dataType;
+						dataLen = zcl_getAttrSize(pReadRspCmd->attrList[i].dataType, pReadRspCmd->attrList[i].data);
+						memcpy(pBuf, pReadRspCmd->attrList[i].data, dataLen);
+						if( (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_LONG_CHAR_STR) && (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_LONG_OCTET_STR) &&
+							(pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_CHAR_STR) && (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_OCTET_STR) &&
+							(pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_STRUCT) ){
+								ZB_LEBESWAP(pBuf, dataLen);
+						}
+						pBuf += dataLen;
+					}
+				}
+
+				zbhciTx(ZBHCI_CMD_ZCL_ATTR_READ_RSP, pBuf - array, array);
+			}
 			break;
 #endif
 #ifdef ZCL_WRITE
@@ -132,10 +166,66 @@ void sampleGW_zclProcessIncomingMsg(zclIncoming_t *pInHdlrMsg)
 			sampleGW_zclCfgReportCmd(pInHdlrMsg->attrCmd);
 			break;
 		case ZCL_CMD_CONFIG_REPORT_RSP:
-			sampleGW_zclCfgReportRspCmd(pInHdlrMsg->attrCmd);
+			// sampleGW_zclCfgReportRspCmd(pInHdlrMsg->attrCmd);
+			{
+				zclCfgReportRspCmd_t *pCfgReportRspCmd = (zclCfgReportRspCmd_t *)pInHdlrMsg->attrCmd;
+
+				*pBuf++ = pInHdlrMsg->hdr.seqNum;
+				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+				*pBuf++ = pInHdlrMsg->msg->indInfo.src_ep;
+				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
+				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
+				*pBuf++ = pCfgReportRspCmd->numAttr;
+
+				for(u8 i = 0; i < pCfgReportRspCmd->numAttr; i++){
+					*pBuf++ = pCfgReportRspCmd->attrList[i].status;
+					*pBuf++ = pCfgReportRspCmd->attrList[i].direction;
+					*pBuf++ = HI_UINT16(pCfgReportRspCmd->attrList[i].attrID);
+					*pBuf++ = LO_UINT16(pCfgReportRspCmd->attrList[i].attrID);
+				}
+
+				zbhciTx(ZBHCI_CMD_ZCL_CONFIG_REPORT_RSP, pBuf - array, array);
+			}
 			break;
 		case ZCL_CMD_READ_REPORT_CFG_RSP:
-			sampleGW_zclCfgReadRspCmd(pInHdlrMsg->attrCmd);
+			// sampleGW_zclCfgReadRspCmd(pInHdlrMsg->attrCmd);
+			{
+				zclReadReportCfgRspCmd_t *pReadCfgRspCmd = (zclReadReportCfgRspCmd_t *)pInHdlrMsg->attrCmd;
+				*pBuf++ = pInHdlrMsg->hdr.seqNum;
+				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+				*pBuf++ = pInHdlrMsg->msg->indInfo.src_ep;
+				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
+				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
+				*pBuf++ = pReadCfgRspCmd->numAttr;
+
+				for(u8 i = 0; i < pReadCfgRspCmd->numAttr; i++){
+					*pBuf++ = pReadCfgRspCmd->attrList[i].status;
+					*pBuf++ = pReadCfgRspCmd->attrList[i].direction;
+					*pBuf++ = HI_UINT16(pReadCfgRspCmd->attrList[i].attrID);
+					*pBuf++ = LO_UINT16(pReadCfgRspCmd->attrList[i].attrID);
+
+					if(pReadCfgRspCmd->attrList[i].direction == ZCL_SEND_ATTR_REPORTS){
+						*pBuf++ = pReadCfgRspCmd->attrList[i].dataType;
+						*pBuf++ = HI_UINT16(pReadCfgRspCmd->attrList[i].minReportInt);
+						*pBuf++ = LO_UINT16(pReadCfgRspCmd->attrList[i].minReportInt);
+						*pBuf++ = HI_UINT16(pReadCfgRspCmd->attrList[i].maxReportInt);
+						*pBuf++ = LO_UINT16(pReadCfgRspCmd->attrList[i].maxReportInt);
+
+						if(zcl_analogDataType(pReadCfgRspCmd->attrList[i].dataType)){
+							dataLen = zcl_getAttrSize(pReadCfgRspCmd->attrList[i].dataType, pReadCfgRspCmd->attrList[i].reportableChange);
+							memcpy(pBuf, pReadCfgRspCmd->attrList[i].reportableChange, dataLen);
+							pBuf += dataLen;
+						}
+					}else{
+						*pBuf++ = HI_UINT16(pReadCfgRspCmd->attrList[i].timeoutPeriod);
+						*pBuf++ = LO_UINT16(pReadCfgRspCmd->attrList[i].timeoutPeriod);
+					}
+				}
+
+				zbhciTx(ZBHCI_CMD_ZCL_READ_REPORT_CFG_RSP, pBuf - array, array);
+			}
 			break;
 		case ZCL_CMD_REPORT:
 			sampleGW_zclReportCmd(pInHdlrMsg);
@@ -210,6 +300,12 @@ static void sampleGW_zclWriteRspCmd(zclIncoming_t *pInMsg)
 	u8 *pBuf = array;
 	zclWriteRspCmd_t *pWriteRsp = (zclWriteRspCmd_t *)pInMsg->attrCmd;
 
+	*pBuf++ = pInMsg->hdr.seqNum;
+	*pBuf++ = HI_UINT16(pInMsg->msg->indInfo.src_short_addr);
+	*pBuf++ = LO_UINT16(pInMsg->msg->indInfo.src_short_addr);
+	*pBuf++ = pInMsg->msg->indInfo.src_ep;
+	*pBuf++ = HI_UINT16(pInMsg->msg->indInfo.cluster_id);
+	*pBuf++ = LO_UINT16(pInMsg->msg->indInfo.cluster_id);
 	*pBuf++ = pWriteRsp->numAttr;
 
 	if(pInMsg->dataLen == 1){//the case of successful writing of all attributes
@@ -311,9 +407,12 @@ static void sampleGW_zclReportCmd(zclIncoming_t *pInMsg)
 	u16 dataLen = 0;
 	u8 *pBuf = array;
 
+	*pBuf++ = pInMsg->hdr.seqNum;
 	*pBuf++ = HI_UINT16(pInMsg->msg->indInfo.src_short_addr);
 	*pBuf++ = LO_UINT16(pInMsg->msg->indInfo.src_short_addr);
 	*pBuf++ = pInMsg->msg->indInfo.src_ep;
+	*pBuf++ = HI_UINT16(pInMsg->msg->indInfo.cluster_id);
+	*pBuf++ = LO_UINT16(pInMsg->msg->indInfo.cluster_id);
 
 	*pBuf++ = pReportCmd->numAttr;
 	for(u8 i = 0; i < pReportCmd->numAttr; i++){

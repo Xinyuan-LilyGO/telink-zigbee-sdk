@@ -46,7 +46,7 @@
 #include "zcl_include.h"
 #include "ota.h"
 #include "zbhci.h"
-
+#include "zb_common.h"
 
 #if ZBHCI_EN
 /**********************************************************************
@@ -445,6 +445,38 @@ static void zbhci_bdbCmdHandler(void *arg){
 	}else if(cmdID == ZBHCI_CMD_BDB_TX_POWER_SET){
 		/* Set TX power, value is index of the RF power. */
 		rf_setTxPower(p[0]);
+	}
+
+	ev_buf_free(arg);
+}
+
+static void zbhci_appCmdHandler(void *arg){
+	zbhci_cmdHandler_t *cmdInfo = arg;
+	u16 cmdID = cmdInfo->cmdId;
+	u8 array[64];
+	u8 *pBuf = array;
+	memset(array, 0, 64);
+
+	printf("zbhci_appCmdHandler\n");
+
+	if(cmdID == ZBHCI_CMD_NETWORK_STATE_REQ){
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
+
+		memcpy(pBuf, g_zbInfo.nwkNib.ieeeAddr, 8);
+		ZB_LEBESWAP(pBuf, 8);
+		pBuf += 8;
+
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
+
+		memcpy(pBuf, g_zbInfo.nwkNib.extPANId, 8);
+		ZB_LEBESWAP(pBuf, 8);
+		pBuf += 8;
+
+		*pBuf++ = g_zbInfo.macPib.phyChannelCur;
+
+		zbhciTx(ZBHCI_CMD_NETWORK_STATE_RSP, pBuf - array, array);
 	}
 
 	ev_buf_free(arg);
@@ -849,6 +881,10 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 	u8 seqNum = 0;//pdu tx seq num
 	u8 st = 0;
 
+	u8 array[64];
+	u8 *pBuf = array;
+	memset(array, 0, 64);
+
 	zbhci_cmdHandler_t *cmdInfo = (zbhci_cmdHandler_t*)ev_buf_allocate(msgLen+4);
 	if(cmdInfo){
 		cmdInfo->cmdId = msgType;
@@ -868,6 +904,28 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 				TL_SCHEDULE_TASK(zbhci_bdbCmdHandler, cmdInfo);
 				break;
 
+			case ZBHCI_CMD_NETWORK_STATE_REQ:
+				// TL_SCHEDULE_TASK(zbhci_appCmdHandler, cmdInfo);
+				{
+					*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
+					*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
+					
+					memcpy(pBuf, g_zbInfo.nwkNib.ieeeAddr, 8);
+					ZB_LEBESWAP(pBuf, 8);
+					pBuf += 8;
+					
+					*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
+					*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
+					
+					memcpy(pBuf, g_zbInfo.nwkNib.extPANId, 8);
+					ZB_LEBESWAP(pBuf, 8);
+					pBuf += 8;
+					
+					*pBuf++ = g_zbInfo.macPib.phyChannelCur;
+					
+					zbhciTx(ZBHCI_CMD_NETWORK_STATE_RSP, pBuf - array, array);
+				}
+				break;
 
 			case ZBHCI_CMD_DISCOVERY_NWK_ADDR_REQ:
 			case ZBHCI_CMD_DISCOVERY_IEEE_ADDR_REQ:

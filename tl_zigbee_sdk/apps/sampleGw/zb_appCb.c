@@ -164,6 +164,8 @@ void zbdemo_bdbInitCb(u8 status, u8 joinedNetwork){
  * @return  None
  */
 void zbdemo_bdbCommissioningCb(u8 status, void *arg){
+	u8 Buf[1] = { 0 };
+
 	if(status == BDB_COMMISSION_STA_SUCCESS){
 		heartInterval = 1000;
 	}else if(status == BDB_COMMISSION_STA_IN_PROGRESS){
@@ -188,7 +190,7 @@ void zbdemo_bdbCommissioningCb(u8 status, void *arg){
 
 	}else if(status == BDB_COMMISSION_STA_FORMATION_DONE){
 #if ZBHCI_EN
-
+	zbhciTx(ZBHCI_CMD_BDB_COMMISSION_FORMATION_RSP, 1, Buf);
 #else
 		/* If you comment out the channel setting,
 		 * this demo will automatically select a channel,
@@ -265,6 +267,16 @@ void sampleGW_leaveIndHandler(nlme_leave_ind_t *pLeaveInd)
 {
 #if ZBHCI_EN
 	//zbhciLeaveIndMsgPush(pLeaveInd);
+	u8 array[64];
+	u8 *pBuf = array;
+
+	memset(array, 0, 64);
+
+	memcpy(pBuf, pLeaveInd->deviceAddr, 8);
+	ZB_LEBESWAP(pBuf, 8);
+	pBuf += 8;
+	*pBuf++ = pLeaveInd->rejoin;
+	zbhciTx(ZBHCI_CMD_LEAVE_INDICATION, pBuf - array, array);
 #if 0
 	static u16 leaveNodeCnt = 0;
 	zbhci_nodeLeaveInd_t ind;

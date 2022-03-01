@@ -251,6 +251,8 @@ void user_init(bool isRetention)
 	rf_paInit(PA_TX, PA_RX);
 #endif
 
+	printf("user_init\n");
+
 	/* Initialize Stack */
 	stack_init();
 
