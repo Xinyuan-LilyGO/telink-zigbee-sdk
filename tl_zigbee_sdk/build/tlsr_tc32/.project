@@ -78,6 +78,7 @@
 		<nature>org.eclipse.cdt.core.cnature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
+		<nature>com.telink.tc32eclipse.core.TC32nature</nature>
 	</natures>
 	<linkedResources>
 		<link>
@@ -139,6 +140,11 @@
 			<name>apps/sampleSwitch</name>
 			<type>2</type>
 			<locationURI>PARENT-2-PROJECT_LOC/apps/sampleSwitch</locationURI>
+		</link>
+		<link>
+			<name>apps/factory_test</name>
+			<type>2</type>
+			<locationURI>PARENT-2-PROJECT_LOC/apps/factory_test</locationURI>
 		</link>
 		<link>
 			<name>platform/boot</name>
