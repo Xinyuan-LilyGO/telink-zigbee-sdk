@@ -147,6 +147,11 @@
 			<locationURI>PARENT-2-PROJECT_LOC/apps/factory_test</locationURI>
 		</link>
 		<link>
+			<name>apps/fullDevice</name>
+			<type>2</type>
+			<locationURI>PARENT-2-PROJECT_LOC/apps/fullDevice</locationURI>
+		</link>
+		<link>
 			<name>platform/boot</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
