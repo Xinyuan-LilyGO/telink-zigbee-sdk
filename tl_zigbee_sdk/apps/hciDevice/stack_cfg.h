@@ -118,6 +118,19 @@
 	#define GP_SUPPORT_ENABLE					  1
 #endif
 
+/***********************************************************************
+ * If PM_ENABLE is set, the macro ZB_MAC_RX_ON_WHEN_IDLE must be ZERO.
+ */
+#if ZB_ED_ROLE
+	#if PM_ENABLE
+		#define ZB_MAC_RX_ON_WHEN_IDLE			  0//must 0
+	#endif
+
+	#ifndef ZB_MAC_RX_ON_WHEN_IDLE
+		#define ZB_MAC_RX_ON_WHEN_IDLE			  0//set 0 or 1
+	#endif
+#endif
+
 #if (SECURITY_ENABLE)
     #define ZB_SECURITY
 #endif

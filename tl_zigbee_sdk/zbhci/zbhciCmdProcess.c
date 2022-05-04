@@ -457,8 +457,6 @@ static void zbhci_appCmdHandler(void *arg){
 	u8 *pBuf = array;
 	memset(array, 0, 64);
 
-	printf("zbhci_appCmdHandler\n");
-
 	if(cmdID == ZBHCI_CMD_NETWORK_STATE_REQ){
 		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
 		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
@@ -678,7 +676,9 @@ s32 node_toggle_unicast_test(void *arg){
 		onOff ^= 1;
 
 		if(mode >= 2){
+#if ZB_COORDINATOR_ROLE
 			g_nodeTestTimer = NULL;
+#endif
 			return -1;
 		}else{
 			return 0;

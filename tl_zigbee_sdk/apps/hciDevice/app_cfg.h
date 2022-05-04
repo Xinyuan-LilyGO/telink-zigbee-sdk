@@ -71,6 +71,10 @@ extern "C" {
 #define ZBHCI_USB_CDC					0
 #define ZBHCI_USB_HID					0
 
+/* BDB */
+#define TOUCHLINK_SUPPORT				1
+#define FIND_AND_BIND_SUPPORT			0
+
 /* Board ID */
 #define BOARD_826x_EVK					0
 #define BOARD_826x_DONGLE				1
@@ -82,6 +86,7 @@ extern "C" {
 #define BOARD_8278_DONGLE				7
 #define BOARD_9518_EVK					8
 #define BOARD_9518_DONGLE				9
+#define BOARD_8258                      10
 
 /* Board define */
 #if defined(MCU_CORE_826x)
@@ -95,7 +100,7 @@ extern "C" {
 #if (CHIP_TYPE == TLSR_8258_1M)
 	#define FLASH_CAP_SIZE_1M			1
 #endif
-	#define BOARD						BOARD_8258_DONGLE
+	#define BOARD						BOARD_8258
 	#define CLOCK_SYS_CLOCK_HZ  		48000000
 #elif defined(MCU_CORE_8278)
 	#define FLASH_CAP_SIZE_1M			1
@@ -122,6 +127,8 @@ extern "C" {
 	#include "board_8258_evk.h"
 #elif (BOARD == BOARD_8258_EVK_V1P2)
 	#include "board_8258_evk_v1p2.h"
+#elif (BOARD == BOARD_8258)
+	#include "board_8258.h"
 #elif (BOARD == BOARD_8278_EVK)
 	#include "board_8278_evk.h"
 #elif (BOARD == BOARD_8278_DONGLE)
