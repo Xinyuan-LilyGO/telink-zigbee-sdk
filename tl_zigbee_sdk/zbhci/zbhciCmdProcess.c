@@ -92,7 +92,7 @@ extern void zbhci_clusterSceneHandle(void *arg);
 extern void zbhci_clusterOTAHandle(void *arg);
 extern void zbhci_clusterBasicHandle(void *arg);
 extern void zbhci_clusterCommonCmdHandle(void *arg);
-extern void zbhci_clusterOTAHandle(void *arg);
+extern void zbhci_afCmdHandle(void *arg);
 
 
 /**********************************************************************
@@ -324,7 +324,9 @@ void zbhciAfDataCnfPush(void *arg){
 
 
 void zbhciAppDataSendConfirmPush(void *arg){
+#if ZB_COORDINATOR_ROLE
 	apsdeDataConf_t *pApsDataCnf = (apsdeDataConf_t *)arg;
+#endif
 
 	zbhci_app_data_confirm_t *conf = (zbhci_app_data_confirm_t *)ev_buf_allocate(sizeof(zbhci_app_data_confirm_t));
 	if(conf){
@@ -458,6 +460,7 @@ static void zbhci_appCmdHandler(void *arg){
 	memset(array, 0, 64);
 
 	if(cmdID == ZBHCI_CMD_NETWORK_STATE_REQ){
+		printf("ZBHCI_CMD_NETWORK_STATE_REQ\n");
 		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
 		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
 
@@ -777,8 +780,10 @@ s32 rxtx_performance_test(void *arg){
 s32 zbhci_nodeManageCmdHandler(void *arg){
 	zbhci_cmdHandler_t *cmdInfo = arg;
 	u16 cmdID = cmdInfo->cmdId;
+#if ZB_COORDINATOR_ROLE
 	u8 *p = cmdInfo->payload;
 	u8 len = 0;
+#endif
 
 	if(cmdID == ZBHCI_CMD_NODES_JOINED_GET_REQ){
 #if ZB_COORDINATOR_ROLE
@@ -881,10 +886,6 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 	u8 seqNum = 0;//pdu tx seq num
 	u8 st = 0;
 
-	u8 array[64];
-	u8 *pBuf = array;
-	memset(array, 0, 64);
-
 	zbhci_cmdHandler_t *cmdInfo = (zbhci_cmdHandler_t*)ev_buf_allocate(msgLen+4);
 	if(cmdInfo){
 		cmdInfo->cmdId = msgType;
@@ -905,26 +906,7 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 				break;
 
 			case ZBHCI_CMD_NETWORK_STATE_REQ:
-				// TL_SCHEDULE_TASK(zbhci_appCmdHandler, cmdInfo);
-				{
-					*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
-					*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
-					
-					memcpy(pBuf, g_zbInfo.nwkNib.ieeeAddr, 8);
-					ZB_LEBESWAP(pBuf, 8);
-					pBuf += 8;
-					
-					*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
-					*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
-					
-					memcpy(pBuf, g_zbInfo.nwkNib.extPANId, 8);
-					ZB_LEBESWAP(pBuf, 8);
-					pBuf += 8;
-					
-					*pBuf++ = g_zbInfo.macPib.phyChannelCur;
-					
-					zbhciTx(ZBHCI_CMD_NETWORK_STATE_RSP, pBuf - array, array);
-				}
+				TL_SCHEDULE_TASK(zbhci_appCmdHandler, cmdInfo);
 				break;
 
 			case ZBHCI_CMD_DISCOVERY_NWK_ADDR_REQ:
@@ -962,6 +944,9 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 			case ZBHCI_CMD_ZCL_ATTR_WRITE:
 			case ZBHCI_CMD_ZCL_CONFIG_REPORT:
 			case ZBHCI_CMD_ZCL_READ_REPORT_CFG:
+			case ZBHCI_CMD_ZCL_LOCAL_ATTR_READ:
+			case ZBHCI_CMD_ZCL_LOCAL_ATTR_WRITE:
+			case ZBHCI_CMD_ZCL_SEND_REPORT_CMD:
 				TL_SCHEDULE_TASK(zbhci_clusterCommonCmdHandle, cmdInfo);
 				break;
 
@@ -1019,6 +1004,10 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 
 			case ZBHCI_CMD_ZCL_OTA_IMAGE_NOTIFY:
 				TL_SCHEDULE_TASK(zbhci_clusterOTAHandle, cmdInfo);
+				break;
+
+			case ZBHCI_CMD_AF_DATA_SEND:
+				TL_SCHEDULE_TASK(zbhci_afCmdHandle, cmdInfo);
 				break;
 
 			default:
