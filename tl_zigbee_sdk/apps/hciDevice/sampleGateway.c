@@ -213,12 +213,12 @@ void app_task(void)
 
 static void sampleGwSysException(void)
 {
-	SYSTEM_RESET();
+	// SYSTEM_RESET();
 
-//	while(1){
-//		gpio_toggle(LED_POWER);
-//		WaitMs(100);
-//	}
+	while(1){
+		gpio_toggle(LED_POWER);
+		WaitMs(100);
+	}
 }
 
 
@@ -236,6 +236,8 @@ void user_init(bool isRetention)
 {
 	(void)isRetention;
 
+	printf("user init\n");
+
 #if defined(MCU_CORE_8258) || defined(MCU_CORE_8278) || defined(MCU_CORE_B91)
 	extern u8 firmwareCheckWithUID(void);
 	if(firmwareCheckWithUID()){
@@ -250,8 +252,6 @@ void user_init(bool isRetention)
 	/* external RF PA used */
 	rf_paInit(PA_TX, PA_RX);
 #endif
-
-	printf("user_init\n");
 
 	/* Initialize Stack */
 	stack_init();

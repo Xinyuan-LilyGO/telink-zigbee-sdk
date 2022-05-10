@@ -95,7 +95,8 @@ extern "C" {
 
 // DEBUG
 #if UART_PRINTF_MODE
-	#define	DEBUG_INFO_TX_PIN	    GPIO_PC4//print
+	#define DEBUG_INFO_TX_PIN GPIO_PC3//print
+	#define BAUDRATE          115200
 #endif
 /*******************************************************************************************************
 *********************8258Dongle with 32 Pins: End*****************************************************

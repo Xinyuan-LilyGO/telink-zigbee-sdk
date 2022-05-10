@@ -135,7 +135,7 @@ void zbdemo_bdbInitCb(u8 status, u8 joinedNetwork){
 		if(joinedNetwork){
 			heartInterval = 1000;
 		}else{
-#if	(!ZBHCI_EN)
+#if	(!ZBHCI_EN) && ZB_COORDINATOR_ROLE
 			bdb_networkFormationStart();
 #endif
 			heartInterval = 500;
@@ -164,33 +164,53 @@ void zbdemo_bdbInitCb(u8 status, u8 joinedNetwork){
  * @return  None
  */
 void zbdemo_bdbCommissioningCb(u8 status, void *arg){
-	u8 Buf[1] = { 0 };
+	u8 array[64] = { 0 };
+	u8 *pBuf = array;
 
 	if(status == BDB_COMMISSION_STA_SUCCESS){
+		printf("bdb evt: BDB_COMMISSION_STA_SUCCESS\n");
 		heartInterval = 1000;
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
+
+		memcpy(pBuf, g_zbInfo.nwkNib.ieeeAddr, 8);
+		ZB_LEBESWAP(pBuf, 8);
+		pBuf += 8;
+
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
+
+		memcpy(pBuf, g_zbInfo.nwkNib.extPANId, 8);
+		ZB_LEBESWAP(pBuf, 8);
+		pBuf += 8;
+
+		*pBuf++ = g_zbInfo.macPib.phyChannelCur;
+
+		zbhciTx(ZBHCI_CMD_NETWORK_STATE_REPORT, pBuf - array, array);
 	}else if(status == BDB_COMMISSION_STA_IN_PROGRESS){
-
+		printf("bdb evt: BDB_COMMISSION_STA_IN_PROGRESS\n");
 	}else if(status == BDB_COMMISSION_STA_NOT_AA_CAPABLE){
-
+		printf("bdb evt: BDB_COMMISSION_STA_NOT_AA_CAPABLE\n");
 	}else if(status == BDB_COMMISSION_STA_NO_NETWORK){
-
+		printf("bdb evt: BDB_COMMISSION_STA_NO_NETWORK\n");
 	}else if(status == BDB_COMMISSION_STA_TARGET_FAILURE){
-
+		printf("bdb evt: BDB_COMMISSION_STA_TARGET_FAILURE\n");
 	}else if(status == BDB_COMMISSION_STA_FORMATION_FAILURE){
-
+		printf("bdb evt: BDB_COMMISSION_STA_TARGET_FAILURE\n");
 	}else if(status == BDB_COMMISSION_STA_NO_IDENTIFY_QUERY_RESPONSE){
-
+		printf("bdb evt: BDB_COMMISSION_STA_NO_IDENTIFY_QUERY_RESPONSE\n");
 	}else if(status == BDB_COMMISSION_STA_BINDING_TABLE_FULL){
-
+		printf("bdb evt: BDB_COMMISSION_STA_BINDING_TABLE_FULL\n");
 	}else if(status == BDB_COMMISSION_STA_NO_SCAN_RESPONSE){
-
+		printf("bdb evt: BDB_COMMISSION_STA_NO_SCAN_RESPONSE\n");
 	}else if(status == BDB_COMMISSION_STA_NOT_PERMITTED){
-
+		printf("bdb evt: BDB_COMMISSION_STA_NOT_PERMITTED\n");
 	}else if(status == BDB_COMMISSION_STA_TCLK_EX_FAILURE){
-
+		printf("bdb evt: BDB_COMMISSION_STA_TCLK_EX_FAILURE\n");
 	}else if(status == BDB_COMMISSION_STA_FORMATION_DONE){
+		printf("bdb evt: BDB_COMMISSION_STA_FORMATION_DONE\n");
 #if ZBHCI_EN
-	zbhciTx(ZBHCI_CMD_BDB_COMMISSION_FORMATION_RSP, 1, Buf);
+	zbhciTx(ZBHCI_CMD_BDB_COMMISSION_FORMATION_RSP, 1, array);
 #else
 		/* If you comment out the channel setting,
 		 * this demo will automatically select a channel,
@@ -199,6 +219,8 @@ void zbdemo_bdbCommissioningCb(u8 status, void *arg){
 	    tl_zbMacChannelSet(DEFAULT_CHANNEL);  //set default channel
 #endif
 	    heartInterval = 1000;
+	}else{
+		printf("bdb evt: %d\n", status);
 	}
 }
 
@@ -223,6 +245,7 @@ void zbdemo_bdbIdentifyCb(u8 endpoint, u16 srcAddr, u16 identifyTime){
 void sampleGW_devAnnHandler(zdo_device_annce_req_t *pDevAnnceReq)
 {
 #if ZBHCI_EN
+	printf("sampleGW_devAnnHandler\n");
 	u8 array[64];
 	memset(array, 0, 64);
 

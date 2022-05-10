@@ -90,6 +90,68 @@ typedef struct{
 	u16	identifyTime;
 }zcl_identifyAttr_t;
 
+/**
+ *  @brief Defined for group cluster attributes
+ */
+typedef struct{
+	u8	nameSupport;
+}zcl_groupAttr_t;
+
+/**
+ *  @brief Defined for scene cluster attributes
+ */
+typedef struct{
+	u8	 sceneCount;
+	u8	 currentScene;
+	u8	 nameSupport;
+	bool sceneValid;
+	u16	 currentGroup;
+}zcl_sceneAttr_t;
+
+/**
+ *  @brief Defined for on/off cluster attributes
+ */
+typedef struct{
+	u16	 onTime;
+	u16	 offWaitTime;
+	u8	 startUpOnOff;
+	bool onOff;
+	bool globalSceneControl;
+}zcl_onOffAttr_t;
+
+/**
+ *  @brief Defined for level cluster attributes
+ */
+typedef struct{
+	u16	remainingTime;
+	u8	curLevel;
+	u8	startUpCurrentLevel;
+}zcl_levelAttr_t;
+
+/**
+ *  @brief Defined for color control cluster attributes
+ */
+typedef struct{
+	u8	colorMode;
+	u8	options;
+	u8	enhancedColorMode;
+	u8	numOfPrimaries;
+	u16 colorCapabilities;
+#if COLOR_RGB_SUPPORT
+	u8	currentHue;
+	u8	currentSaturation;
+	u8	colorLoopActive;
+	u8	colorLoopDirection;
+	u16	colorLoopTime;
+	u16 colorLoopStartEnhancedHue;
+	u16 colorLoopStoredEnhancedHue;
+#elif COLOR_CCT_SUPPORT
+	u16 colorTemperatureMireds;
+	u16 colorTempPhysicalMinMireds;
+	u16 colorTempPhysicalMaxMireds;
+	u16 startUpColorTemperatureMireds;
+#endif
+}zcl_lightColorCtrlAttr_t;
 
 /**********************************************************************
  * GLOBAL VARIABLES
@@ -108,7 +170,15 @@ extern const af_simple_descriptor_t sampleTestDesc;
 /* Attributes */
 extern zcl_basicAttr_t g_zcl_basicAttrs;
 extern zcl_identifyAttr_t g_zcl_identifyAttrs;
+extern zcl_sceneAttr_t g_zcl_sceneAttrs;
+extern zcl_onOffAttr_t g_zcl_onOffAttrs;
+extern zcl_levelAttr_t g_zcl_levelAttrs;
+extern zcl_lightColorCtrlAttr_t g_zcl_colorCtrlAttrs;
 
+#define zcl_sceneAttrGet()		&g_zcl_sceneAttrs
+#define zcl_onoffAttrGet()		&g_zcl_onOffAttrs
+#define zcl_levelAttrGet()		&g_zcl_levelAttrs
+#define zcl_colorAttrGet()		&g_zcl_colorCtrlAttrs
 
 /**********************************************************************
  * FUNCTIONS
@@ -119,6 +189,10 @@ status_t sampleGW_basicCb(zclIncomingAddrInfo_t *pAddrInfo, u8 cmdId, void *cmdP
 status_t sampleGW_identifyCb(zclIncomingAddrInfo_t *pAddrInfo, u8 cmdId, void *cmdPayload);
 status_t sampleGW_groupCb(zclIncomingAddrInfo_t *pAddrInfo, u8 cmdId, void *cmdPayload);
 status_t sampleGW_sceneCb(zclIncomingAddrInfo_t *pAddrInfo, u8 cmdId, void *cmdPayload);
+status_t sampleLight_sceneCb(zclIncomingAddrInfo_t *pAddrInfo, u8 cmdId, void *cmdPayload);
+status_t sampleLight_onOffCb(zclIncomingAddrInfo_t *pAddrInfo, u8 cmdId, void *cmdPayload);
+status_t sampleLight_levelCb(zclIncomingAddrInfo_t *pAddrInfo, u8 cmdId, void *cmdPayload);
+status_t sampleLight_colorCtrlCb(zclIncomingAddrInfo_t *pAddrInfo, u8 cmdId, void *cmdPayload);
 #ifdef ZCL_DOOR_LOCK
 status_t sampleGW_doorLockCb(zclIncomingAddrInfo_t *pAddrInfo, u8 cmdId, void *cmdPayload);
 #endif

@@ -72,18 +72,19 @@
  * LOCAL FUNCTIONS
  */
 #ifdef ZCL_READ
-static void sampleGW_zclReadRspCmd(zclReadRspCmd_t *pReadRspCmd);
+static void sampleGW_zclReadRspCmd(zclIncoming_t *pInHdlrMsg);
 #endif
 #ifdef ZCL_WRITE
+static void sampleGW_zclWriteReqCmd(zclIncoming_t *pInMsg);
 static void sampleGW_zclWriteRspCmd(zclIncoming_t *pInMsg);
 #endif
 #ifdef ZCL_REPORT
-static void sampleGW_zclCfgReportCmd(zclCfgReportCmd_t *pCfgReportCmd);
-static void sampleGW_zclCfgReportRspCmd(zclCfgReportRspCmd_t *pCfgReportRspCmd);
+static void sampleGW_zclCfgReportCmd(zclIncoming_t *pInMsg);
+static void sampleGW_zclCfgReportRspCmd(zclIncoming_t *pInHdlrMsg);
 static void sampleGW_zclReportCmd(zclIncoming_t *pInMsg);
-static void sampleGW_zclCfgReadRspCmd(zclReadReportCfgRspCmd_t *pReadCfgRspCmd);
+static void sampleGW_zclCfgReadRspCmd(zclIncoming_t *pInHdlrMsg);
 #endif
-static void sampleGW_zclDfltRspCmd(zclDefaultRspCmd_t *pDftRspCmd);
+static void sampleGW_zclDfltRspCmd(zclIncoming_t *pInHdlrMsg);
 
 /**********************************************************************
  * GLOBAL VARIABLES
@@ -113,128 +114,50 @@ static ev_timer_event_t *identifyTimerEvt = NULL;
  */
 void sampleGW_zclProcessIncomingMsg(zclIncoming_t *pInHdlrMsg)
 {
-//	printf("sampleGW_zclProcessIncomingMsg\n");
-	u8 array[64];
-	memset(array, 0, 64);
-
-	u16 dataLen = 0;
-	u8 *pBuf = array;
+	printf("Process ZCL Foundation incoming message.\n");
 
 	switch(pInHdlrMsg->hdr.cmd)
 	{
 #ifdef ZCL_READ
 		case ZCL_CMD_READ_RSP:
-			// sampleGW_zclReadRspCmd(pInHdlrMsg->attrCmd);
-			{
-				zclReadRspCmd_t *pReadRspCmd = (zclReadRspCmd_t *)pInHdlrMsg->attrCmd;
-
-				*pBuf++ = pInHdlrMsg->hdr.seqNum;
-				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
-				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
-				*pBuf++ = pInHdlrMsg->msg->indInfo.src_ep;
-				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
-				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
-				*pBuf++ = pReadRspCmd->numAttr;
-				for(u8 i = 0; i < pReadRspCmd->numAttr; i++){
-					*pBuf++ = HI_UINT16(pReadRspCmd->attrList[i].attrID);
-					*pBuf++ = LO_UINT16(pReadRspCmd->attrList[i].attrID);
-					*pBuf++ = pReadRspCmd->attrList[i].status;
-					if(pReadRspCmd->attrList[i].status == ZCL_STA_SUCCESS){
-						*pBuf++ = pReadRspCmd->attrList[i].dataType;
-						dataLen = zcl_getAttrSize(pReadRspCmd->attrList[i].dataType, pReadRspCmd->attrList[i].data);
-						memcpy(pBuf, pReadRspCmd->attrList[i].data, dataLen);
-						if( (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_LONG_CHAR_STR) && (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_LONG_OCTET_STR) &&
-							(pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_CHAR_STR) && (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_OCTET_STR) &&
-							(pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_STRUCT) ){
-								ZB_LEBESWAP(pBuf, dataLen);
-						}
-						pBuf += dataLen;
-					}
-				}
-
-				zbhciTx(ZBHCI_CMD_ZCL_ATTR_READ_RSP, pBuf - array, array);
-			}
+			printf("Process ZCL Read RSP\n");
+			sampleGW_zclReadRspCmd(pInHdlrMsg);
 			break;
 #endif
 #ifdef ZCL_WRITE
+		case ZCL_CMD_WRITE:
+        case ZCL_CMD_WRITE_NO_RSP:
+			sampleGW_zclWriteReqCmd(pInHdlrMsg);
+			break;
 		case ZCL_CMD_WRITE_RSP:
+			printf("Process ZCL Write RSP\n");
 			sampleGW_zclWriteRspCmd(pInHdlrMsg);
 			break;
 #endif
 #ifdef ZCL_REPORT
 		case ZCL_CMD_CONFIG_REPORT:
-			sampleGW_zclCfgReportCmd(pInHdlrMsg->attrCmd);
+			printf("Process ZCL Config REPORT\n");
+			sampleGW_zclCfgReportCmd(pInHdlrMsg);
 			break;
 		case ZCL_CMD_CONFIG_REPORT_RSP:
-			// sampleGW_zclCfgReportRspCmd(pInHdlrMsg->attrCmd);
-			{
-				zclCfgReportRspCmd_t *pCfgReportRspCmd = (zclCfgReportRspCmd_t *)pInHdlrMsg->attrCmd;
-
-				*pBuf++ = pInHdlrMsg->hdr.seqNum;
-				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
-				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
-				*pBuf++ = pInHdlrMsg->msg->indInfo.src_ep;
-				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
-				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
-				*pBuf++ = pCfgReportRspCmd->numAttr;
-
-				for(u8 i = 0; i < pCfgReportRspCmd->numAttr; i++){
-					*pBuf++ = pCfgReportRspCmd->attrList[i].status;
-					*pBuf++ = pCfgReportRspCmd->attrList[i].direction;
-					*pBuf++ = HI_UINT16(pCfgReportRspCmd->attrList[i].attrID);
-					*pBuf++ = LO_UINT16(pCfgReportRspCmd->attrList[i].attrID);
-				}
-
-				zbhciTx(ZBHCI_CMD_ZCL_CONFIG_REPORT_RSP, pBuf - array, array);
-			}
+			printf("Process ZCL Config RSP\n");
+			sampleGW_zclCfgReportRspCmd(pInHdlrMsg);
 			break;
 		case ZCL_CMD_READ_REPORT_CFG_RSP:
-			// sampleGW_zclCfgReadRspCmd(pInHdlrMsg->attrCmd);
-			{
-				zclReadReportCfgRspCmd_t *pReadCfgRspCmd = (zclReadReportCfgRspCmd_t *)pInHdlrMsg->attrCmd;
-				*pBuf++ = pInHdlrMsg->hdr.seqNum;
-				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
-				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
-				*pBuf++ = pInHdlrMsg->msg->indInfo.src_ep;
-				*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
-				*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
-				*pBuf++ = pReadCfgRspCmd->numAttr;
-
-				for(u8 i = 0; i < pReadCfgRspCmd->numAttr; i++){
-					*pBuf++ = pReadCfgRspCmd->attrList[i].status;
-					*pBuf++ = pReadCfgRspCmd->attrList[i].direction;
-					*pBuf++ = HI_UINT16(pReadCfgRspCmd->attrList[i].attrID);
-					*pBuf++ = LO_UINT16(pReadCfgRspCmd->attrList[i].attrID);
-
-					if(pReadCfgRspCmd->attrList[i].direction == ZCL_SEND_ATTR_REPORTS){
-						*pBuf++ = pReadCfgRspCmd->attrList[i].dataType;
-						*pBuf++ = HI_UINT16(pReadCfgRspCmd->attrList[i].minReportInt);
-						*pBuf++ = LO_UINT16(pReadCfgRspCmd->attrList[i].minReportInt);
-						*pBuf++ = HI_UINT16(pReadCfgRspCmd->attrList[i].maxReportInt);
-						*pBuf++ = LO_UINT16(pReadCfgRspCmd->attrList[i].maxReportInt);
-
-						if(zcl_analogDataType(pReadCfgRspCmd->attrList[i].dataType)){
-							dataLen = zcl_getAttrSize(pReadCfgRspCmd->attrList[i].dataType, pReadCfgRspCmd->attrList[i].reportableChange);
-							memcpy(pBuf, pReadCfgRspCmd->attrList[i].reportableChange, dataLen);
-							pBuf += dataLen;
-						}
-					}else{
-						*pBuf++ = HI_UINT16(pReadCfgRspCmd->attrList[i].timeoutPeriod);
-						*pBuf++ = LO_UINT16(pReadCfgRspCmd->attrList[i].timeoutPeriod);
-					}
-				}
-
-				zbhciTx(ZBHCI_CMD_ZCL_READ_REPORT_CFG_RSP, pBuf - array, array);
-			}
+			printf("Process ZCL Read Report Config RSP\n");
+			sampleGW_zclCfgReadRspCmd(pInHdlrMsg);
 			break;
 		case ZCL_CMD_REPORT:
+			printf("Process ZCL Report\n");
 			sampleGW_zclReportCmd(pInHdlrMsg);
 			break;
 #endif
 		case ZCL_CMD_DEFAULT_RSP:
-			sampleGW_zclDfltRspCmd(pInHdlrMsg->attrCmd);
+			printf("Process ZCL Default Report\n");
+			sampleGW_zclDfltRspCmd(pInHdlrMsg);
 			break;
 		default:
+			printf("Unknown ZCL command\n");
 			break;
 	}
 }
@@ -249,15 +172,21 @@ void sampleGW_zclProcessIncomingMsg(zclIncoming_t *pInHdlrMsg)
  *
  * @return  None
  */
-static void sampleGW_zclReadRspCmd(zclReadRspCmd_t *pReadRspCmd)
+static void sampleGW_zclReadRspCmd(zclIncoming_t *pInHdlrMsg)
 {
 #if ZBHCI_EN
-	u8 array[64];
-	memset(array, 0, 64);
-
+	u8 array[64] = { 0 };
 	u16 dataLen = 0;
 	u8 *pBuf = array;
 
+	zclReadRspCmd_t *pReadRspCmd = (zclReadRspCmd_t *)pInHdlrMsg->attrCmd;
+
+	*pBuf++ = pInHdlrMsg->hdr.seqNum;
+	*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+	*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+	*pBuf++ = pInHdlrMsg->msg->indInfo.src_ep;
+	*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
+	*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
 	*pBuf++ = pReadRspCmd->numAttr;
 	for(u8 i = 0; i < pReadRspCmd->numAttr; i++){
 		*pBuf++ = HI_UINT16(pReadRspCmd->attrList[i].attrID);
@@ -267,8 +196,10 @@ static void sampleGW_zclReadRspCmd(zclReadRspCmd_t *pReadRspCmd)
 			*pBuf++ = pReadRspCmd->attrList[i].dataType;
 			dataLen = zcl_getAttrSize(pReadRspCmd->attrList[i].dataType, pReadRspCmd->attrList[i].data);
 			memcpy(pBuf, pReadRspCmd->attrList[i].data, dataLen);
-			if( (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_LONG_CHAR_STR) && (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_LONG_OCTET_STR) &&
-				(pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_CHAR_STR) && (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_OCTET_STR) &&
+			if( (pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_LONG_CHAR_STR) && \
+				(pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_LONG_OCTET_STR) &&
+				(pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_CHAR_STR) && \
+				(pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_OCTET_STR) &&
 				(pReadRspCmd->attrList[i].dataType != ZCL_DATA_TYPE_STRUCT) ){
 					ZB_LEBESWAP(pBuf, dataLen);
 			}
@@ -276,12 +207,68 @@ static void sampleGW_zclReadRspCmd(zclReadRspCmd_t *pReadRspCmd)
 		}
 	}
 
-   	zbhciTx(ZBHCI_CMD_ZCL_ATTR_READ_RSP, pBuf - array, array);
+	zbhciTx(ZBHCI_CMD_ZCL_ATTR_READ_RSP, pBuf - array, array);
 #endif
 }
 #endif	/* ZCL_READ */
 
 #ifdef ZCL_WRITE
+/*********************************************************************
+ * @fn      sampleGW_zclWriteReqCmd
+ *
+ * @brief   Handler for ZCL Write Req command.
+ *
+ * @param   pInHdlrMsg - incoming message to process
+ *
+ * @return  None
+ */
+static void sampleGW_zclWriteReqCmd(zclIncoming_t *pInMsg)
+{
+#if ZBHCI_EN
+    u8 array[64] = { 0 };
+    u8 *pBuf = array;
+    u8 dataLen = 0;
+
+    zclWriteCmd_t *pWriteReq = (zclWriteCmd_t *)pInMsg->attrCmd;
+
+    // SQN
+    *pBuf++ = pInMsg->hdr.seqNum;
+    // dst addr mode
+    *pBuf++ = pInMsg->msg->indInfo.dst_addr_mode;
+    // dst addr
+    *pBuf++ = HI_UINT16(pInMsg->msg->indInfo.dst_addr);
+    *pBuf++ = LO_UINT16(pInMsg->msg->indInfo.dst_addr);
+    // dst ep
+    *pBuf++ = pInMsg->msg->indInfo.dst_ep;
+    // cluster id
+    *pBuf++ = HI_UINT16(pInMsg->msg->indInfo.cluster_id);
+    *pBuf++ = LO_UINT16(pInMsg->msg->indInfo.cluster_id);
+    // num Attr
+    *pBuf++ = pWriteReq->numAttr;
+
+    for (u8 i = 0; i < pWriteReq->numAttr; i++) {
+        // attr id
+        *pBuf++ = HI_UINT16(pWriteReq->attrList[i].attrID);
+        *pBuf++ = LO_UINT16(pWriteReq->attrList[i].attrID);
+        // type
+        *pBuf++ = pWriteReq->attrList[i].dataType;
+        // data
+        dataLen = zcl_getAttrSize(pWriteReq->attrList[i].dataType, pWriteReq->attrList[i].attrData);
+        memcpy(pBuf, pWriteReq->attrList[i].attrData, dataLen);
+        if((pWriteReq->attrList[i].dataType != ZCL_DATA_TYPE_LONG_CHAR_STR)  && \
+           (pWriteReq->attrList[i].dataType != ZCL_DATA_TYPE_LONG_OCTET_STR) && \
+           (pWriteReq->attrList[i].dataType != ZCL_DATA_TYPE_CHAR_STR)       && \
+           (pWriteReq->attrList[i].dataType != ZCL_DATA_TYPE_OCTET_STR)      && \
+           (pWriteReq->attrList[i].dataType != ZCL_DATA_TYPE_STRUCT)) {
+            ZB_LEBESWAP(pBuf, dataLen);
+        }
+        pBuf += dataLen;
+    }
+
+    zbhciTx(ZBHCI_CMD_ZCL_ATTR_WRITE_RCV, pBuf - array, array);
+#endif
+}
+
 /*********************************************************************
  * @fn      sampleGW_zclWriteRspCmd
  *
@@ -334,10 +321,8 @@ static void sampleGW_zclWriteRspCmd(zclIncoming_t *pInMsg)
  *
  * @return  None
  */
-static void sampleGW_zclDfltRspCmd(zclDefaultRspCmd_t *pDftRspCmd)
+static void sampleGW_zclDfltRspCmd(zclIncoming_t *pInHdlrMsg)
 {
-//    printf("sampleGW_zclDfltRspCmd\n");
-
 }
 
 #ifdef ZCL_REPORT
@@ -350,9 +335,8 @@ static void sampleGW_zclDfltRspCmd(zclDefaultRspCmd_t *pDftRspCmd)
  *
  * @return  None
  */
-static void sampleGW_zclCfgReportCmd(zclCfgReportCmd_t *pCfgReportCmd)
+static void sampleGW_zclCfgReportCmd(zclIncoming_t *pInMsg)
 {
-//    printf("sampleGW_zclCfgReportCmd\n");
 }
 
 /*********************************************************************
@@ -364,15 +348,20 @@ static void sampleGW_zclCfgReportCmd(zclCfgReportCmd_t *pCfgReportCmd)
  *
  * @return  None
  */
-static void sampleGW_zclCfgReportRspCmd(zclCfgReportRspCmd_t *pCfgReportRspCmd)
+static void sampleGW_zclCfgReportRspCmd(zclIncoming_t *pInHdlrMsg)
 {
-//    printf("sampleGW_zclCfgReportRspCmd\n");
 #if ZBHCI_EN
-	u8 array[64];
-	memset(array, 0, 64);
-
+	u8 array[64] = { 0 };
 	u8 *pBuf = array;
 
+	zclCfgReportRspCmd_t *pCfgReportRspCmd = (zclCfgReportRspCmd_t *)pInHdlrMsg->attrCmd;
+
+	*pBuf++ = pInHdlrMsg->hdr.seqNum;
+	*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+	*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+	*pBuf++ = pInHdlrMsg->msg->indInfo.src_ep;
+	*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
+	*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
 	*pBuf++ = pCfgReportRspCmd->numAttr;
 
 	for(u8 i = 0; i < pCfgReportRspCmd->numAttr; i++){
@@ -443,15 +432,20 @@ static void sampleGW_zclReportCmd(zclIncoming_t *pInMsg)
  * @return  None
  */
 
-static void sampleGW_zclCfgReadRspCmd(zclReadReportCfgRspCmd_t *pReadCfgRspCmd)
+static void sampleGW_zclCfgReadRspCmd(zclIncoming_t *pInHdlrMsg)
 {
 #if ZBHCI_EN
-	u8 array[64];
-	memset(array, 0, 64);
-
+	u8 array[64] = { 0 };
 	u16 dataLen = 0;
 	u8 *pBuf = array;
 
+	zclReadReportCfgRspCmd_t *pReadCfgRspCmd = (zclReadReportCfgRspCmd_t *)pInHdlrMsg->attrCmd;
+	*pBuf++ = pInHdlrMsg->hdr.seqNum;
+	*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+	*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.src_short_addr);
+	*pBuf++ = pInHdlrMsg->msg->indInfo.src_ep;
+	*pBuf++ = HI_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
+	*pBuf++ = LO_UINT16(pInHdlrMsg->msg->indInfo.cluster_id);
 	*pBuf++ = pReadCfgRspCmd->numAttr;
 
 	for(u8 i = 0; i < pReadCfgRspCmd->numAttr; i++){
