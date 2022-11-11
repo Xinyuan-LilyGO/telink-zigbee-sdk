@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	aps_group.c
+ * @file    aps_group.c
  *
- * @brief	This is the source file for aps_group
+ * @brief   This is the source file for aps_group
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #include "../common/includes/zb_common.h"
 
 
@@ -61,9 +41,30 @@ _CODE_APS_ void aps_groupTblSave2Flash(void *arg){
 _CODE_APS_ u8 aps_groupTblNvInit(void){
 	u8 ret = NV_ITEM_NOT_FOUND;
 #if NV_ENABLE
-	ret = nv_flashReadNew(1, NV_MODULE_APS, NV_ITEM_APS_GROUP_TABLE, APS_GROUP_TABLE_SIZE * sizeof(aps_group_tbl_ent_t), (u8*)aps_group_tbl);
+	nv_itemLengthCheckAdd(NV_ITEM_APS_GROUP_TABLE, APS_GROUP_TABLE_SIZE * sizeof(aps_group_tbl_ent_t));
+	ret = nv_flashReadNew(1, NV_MODULE_APS, NV_ITEM_APS_GROUP_TABLE, sizeof(aps_group_tbl_ent_t), (u8*)aps_group_tbl);
 #endif
 	return ret;
+}
+
+static void aps_groupEntryDel(aps_group_tbl_ent_t *p){
+	aps_group_tbl_ent_t *p0 = &aps_group_tbl[0];
+	u8 sn = p - p0;
+	u8 num = aps_group_entry_num;
+
+	if(p){
+		p->group_addr = APS_INVALID_GRP_ADDR;
+		aps_group_entry_num--;
+
+#if 1  //fill the invalid entry with the valid one
+		if(sn < (num - 1)){
+			memcpy((u8 *)p, (u8 *)(p+1), (num - 1 - sn) * sizeof(aps_group_tbl_ent_t));
+		}
+
+		p0 += (num - 1);
+		p0->group_addr = APS_INVALID_GRP_ADDR;
+#endif
+	}
 }
 
 _CODE_APS_ aps_group_tbl_ent_t *aps_group_search_by_addr(u16 group_addr)
@@ -204,9 +205,15 @@ _CODE_APS_ aps_status_t aps_me_group_add_req(aps_add_group_req_t *req)
 		if (pEntry == NULL) {
 			return APS_STATUS_TABLE_FULL;
 		}
+		//clear previous info
+		for(u8 j=0;j<APS_EP_NUM_IN_GROUP_TBL;j++){
+			pEntry->endpoints[j] = APS_GROUP_EP_INVALID;
+		}
+		memset(pEntry->group_name, 0, APS_GROUP_NAME_LEN);
+
 		pEntry->group_addr = req->group_addr;
 		pEntry->endpoints[0] = req->ep;
-		pEntry->n_endpoints++;
+		pEntry->n_endpoints = 1;
 		aps_group_entry_num++;
 	}//end if(pEntry)
 
@@ -235,11 +242,23 @@ _CODE_APS_ aps_status_t aps_me_group_delete_req(aps_delete_group_req_t *req){
 		return APS_STATUS_INVALID_GROUP;
 	}
 	*pEndpoint = APS_GROUP_EP_INVALID;
+
 	pEntry->n_endpoints--;
 	if (pEntry->n_endpoints == 0) {
 		//TODO: No endpoint in the group, delete the group
-		pEntry->group_addr = APS_INVALID_GRP_ADDR;
-		aps_group_entry_num--;
+		aps_groupEntryDel(pEntry);
+		//pEntry->group_addr = APS_INVALID_GRP_ADDR;
+	}else{
+		//move the valid data to the first positions
+		u8 validEp[APS_EP_NUM_IN_GROUP_TBL];
+		memset(validEp, APS_GROUP_EP_INVALID, APS_EP_NUM_IN_GROUP_TBL);
+		u8 validCnt = 0;
+		for(u8 m = 0; m < APS_EP_NUM_IN_GROUP_TBL; m++){
+			if(pEntry->endpoints[m] != APS_GROUP_EP_INVALID){
+				validEp[validCnt++] = pEntry->endpoints[m];
+			}
+		}
+		memcpy(pEntry->endpoints, validEp, APS_EP_NUM_IN_GROUP_TBL);
 	}
 
 	if(APS_STATUS_SUCCESS == status){
@@ -292,8 +311,19 @@ _CODE_APS_ aps_status_t aps_me_group_delete_all_req(u8 ep){
 		if(pEntry->n_endpoints == 0){
 			//todo Before deleting a group, remove all associated scene entries.
 			//zcl_scene_removeScenesWithGroup(pEntry->group_addr);
-			pEntry->group_addr = APS_INVALID_GRP_ADDR;
-			aps_group_entry_num--;
+			aps_groupEntryDel(pEntry);
+			//pEntry->group_addr = APS_INVALID_GRP_ADDR;
+		}else{
+			//move the valid data to the first positions
+			u8 validEp[APS_EP_NUM_IN_GROUP_TBL];
+			memset(validEp, APS_GROUP_EP_INVALID, APS_EP_NUM_IN_GROUP_TBL);
+			u8 validCnt = 0;
+			for(u8 m = 0; m < APS_EP_NUM_IN_GROUP_TBL; m++){
+				if(pEntry->endpoints[m] != APS_GROUP_EP_INVALID){
+					validEp[validCnt++] = pEntry->endpoints[m];
+				}
+			}
+			memcpy(pEntry->endpoints, validEp, APS_EP_NUM_IN_GROUP_TBL);
 		}
 
 		//search next group

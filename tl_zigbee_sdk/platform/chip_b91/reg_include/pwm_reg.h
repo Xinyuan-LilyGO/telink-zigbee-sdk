@@ -9,44 +9,23 @@
  * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
 #ifndef PWM_REG_H
 #define PWM_REG_H
 
-#include "../sys.h"
+#include "soc.h"
 
 
 
@@ -61,25 +40,18 @@
 
 
 /**
- * This register is used to enable PWM5 ~ PWM1
+ * This register is used to enable PWM0~PWM5.
  */
-#define reg_pwm_enable			REG_ADDR8(REG_PWM_BASE)
-enum{
-	FLD_PWM1_EN  = 				BIT(1),
-	FLD_PWM2_EN  = 				BIT(2),
-	FLD_PWM3_EN  = 				BIT(3),
-	FLD_PWM4_EN  = 				BIT(4),
-	FLD_PWM5_EN  = 				BIT(5),
-};
+#define reg_pwm_enable			REG_ADDR16(REG_PWM_BASE)
+typedef enum{
+	FLD_PWM1_EN = BIT(1),
+	FLD_PWM2_EN = BIT(2),
+	FLD_PWM3_EN = BIT(3),
+	FLD_PWM4_EN = BIT(4),
+	FLD_PWM5_EN = BIT(5),
+	FLD_PWM0_EN = BIT(8),
+}pwm_en_e;
 
-
-/**
- * This register is used to enable PWM0.
- */
-#define reg_pwm0_enable			REG_ADDR8(REG_PWM_BASE+0x01)
-enum{
-	FLD_PWM0_EN  = 				BIT(0),
-};
 
 
 /**
@@ -186,39 +158,13 @@ enum{
  */
 #define reg_pwm_max(i)			REG_ADDR16(REG_PWM_BASE+0x16 + (i << 2))
 
-/*
- * when update the duty cycle in 32K, this register bit(0) set 1.
- */
-#define reg_pwm_cnt5_l      REG_ADDR8(REG_PWM_BASE+0x3e)
-
-enum{
-	FLD_PWM_32K_DUTY_CYCLE_UPDATE   =   BIT(0),
-};
 
 /**
  * When PWM0 is in count mode or ir mode, the total number of pulse_number is set by the following two registers.
  */
-#define reg_pwm0_pulse_num0		REG_ADDR8(REG_PWM_BASE+0x2c)//0x2c[7:0]
-#define reg_pwm0_pulse_num1		REG_ADDR8(REG_PWM_BASE+0x2d)//0x2d[5:0]
+#define reg_pwm0_pulse_num		REG_ADDR16(REG_PWM_BASE+0x2c)//0x2c[7:0] 0x2d[5:0]
 
 
-/**
- *   PWM interrupt mask or interrupt status
- */
-
-typedef enum{
-	FLD_PWM0_PNUM_IRQ 			         =		BIT(0),
-	FLD_PWM0_IR_DMA_FIFO_IRQ 	  		 =		BIT(1),
-	FLD_PWM0_FRAME_DONE_IRQ              =		BIT(2),
-	FLD_PWM1_FRAME_DONE_IRQ              =		BIT(3),
-	FLD_PWM2_FRAME_DONE_IRQ 		  	 =		BIT(4),
-	FLD_PWM3_FRAME_DONE_IRQ             =		BIT(5),
-	FLD_PWM4_FRAME_DONE_IRQ             =		BIT(6),
-	FLD_PWM5_FRAME_DONE_IRQ             =		BIT(7),
-
-	FLD_PWM0_IR_FIFO_IRQ 	  	        =        BIT(16),
-
-}pwm_irq_e;
 
 /**
  * This register is used to configure the PWM interrupt function.
@@ -250,23 +196,43 @@ typedef enum{
  */
 #define reg_pwm_irq_sta(i)		        REG_ADDR8(REG_PWM_BASE+0x31+i*2)
 
+typedef enum{
+	FLD_PWM0_PNUM_IRQ 			         =		BIT(0),
+	FLD_PWM0_IR_DMA_FIFO_IRQ 	  		 =		BIT(1),
+	FLD_PWM0_FRAME_DONE_IRQ              =		BIT(2),
+	FLD_PWM1_FRAME_DONE_IRQ              =		BIT(3),
+	FLD_PWM2_FRAME_DONE_IRQ 		  	 =		BIT(4),
+	FLD_PWM3_FRAME_DONE_IRQ             =		BIT(5),
+	FLD_PWM4_FRAME_DONE_IRQ             =		BIT(6),
+	FLD_PWM5_FRAME_DONE_IRQ             =		BIT(7),
+
+	FLD_PWM0_IR_FIFO_IRQ 	  	        =        BIT(16),
+
+}pwm_irq_e;
+
+
+
 
 /**
- * This register is used to count the number of PWM5~PWM0 pulses.The number of pulses of each PWM consists of 16 bits
+ * PWM0~PWM5, counting from 0 at the beginning of each cycle, and adding 1 for each system clock.
  */
 #define reg_pwm_cnt(i)		    REG_ADDR16(REG_PWM_BASE+0x34 +(i << 1))
 
+/*
+ * when update the duty cycle in 32K, this register bit(0) set 1.
+ */
+#define reg_pwm_cnt5_l      REG_ADDR8(REG_PWM_BASE+0x3e)
+
+enum{
+	FLD_PWM_32K_DUTY_CYCLE_UPDATE   =   BIT(0),
+};
 
 /**
- * PWM0 pulse_cnt value BIT[7:0].
+ * In count mode, each period is incremented by one.
  */
-#define reg_pwm_ncnt_l		    REG_ADDR8(REG_PWM_BASE+0x40)
+#define reg_pwm_ncnt		    REG_ADDR16(REG_PWM_BASE+0x40)
 
 
-/**
- * PWM0 pulse_cnt value BIT[15:8].
- */
-#define reg_pwm_ncnt_h		    REG_ADDR8(REG_PWM_BASE+0x41)
 
 
 /**

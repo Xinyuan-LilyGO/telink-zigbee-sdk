@@ -1,75 +1,58 @@
 /********************************************************************************************************
- * @file	adc.h
+ * @file    adc.h
  *
- * @brief	This is the header file for B85
+ * @brief   This is the header file for B85
  *
- * @author	Driver & Zigbee Group
- * @date	2019
+ * @author  Driver & Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
- *          All rights reserved.
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ *			All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #pragma once
 
 #include "register.h"
 #include "analog.h"
 #include "bit.h"
 #include "gpio.h"
-
+#include "compiler.h"
+/*
+//ADC IO PINS
+GPIO_PinTypeDef ADC_GPIO_tab[] = {
+		GPIO_PB0,GPIO_PB1,
+		GPIO_PB2,GPIO_PB3,
+		GPIO_PB4,GPIO_PB5,
+		GPIO_PB6,GPIO_PB7,
+		GPIO_PC4,GPIO_PC5
+};
+*/
 
 /**
  *  ADC sample rate
  */
 typedef enum{
 	ADC_SAMPLE_RATE_23K,
-	ADC_SAMPLE_RATE_96K
+	ADC_SAMPLE_RATE_96K,
+	ADC_SAMPLE_RATE_192K
 }ADC_SampleRateTypeDef;
 
 #define ADC_SAMPLE_RATE_SELECT        ADC_SAMPLE_RATE_23K
 
 
-
-//ADC reference voltage cfg
-typedef struct {
-	unsigned short adc_vref; //default: 1175 mV
-	unsigned short adc_calib_en;
-}adc_vref_ctr_t;
-
-extern adc_vref_ctr_t adc_vref_cfg;
 
 
 /**
@@ -238,16 +221,6 @@ typedef enum {
 	READ_UPDATA        = BIT(3),
 	CLOCLK_UPDATA      = BIT(4),
 }RNG_UpdataTypeDef;
-
-/**
- * @brief       This function enable adc reference voltage calibration
- * @param[in] en - 1 enable  0 disable
- * @return     none.
- */
-static inline void adc_calib_vref_enable(unsigned char en)
-{
-	adc_vref_cfg.adc_calib_en = en;
-}
 
 /**
  * @brief      This function reset adc module
@@ -1133,14 +1106,30 @@ void adc_set_ain_pre_scaler(ADC_PreScalingTypeDef v_scl);
 void adc_init(void);
 
 /**
+ * @brief This function is used to calib ADC 1.2V vref for GPIO.
+ * @param[in] data - GPIO sampling calibration value.
+ * @return none
+ */
+void adc_set_gpio_calib_vref(unsigned short data);
+
+/**
+ * @brief This function is used to calib ADC 1.2V vref offset for GPIO two-point.
+ * @param[in] offset - GPIO sampling two-point calibration value offset.
+ * @return none
+ */
+void adc_set_gpio_two_point_calib_offset(signed char offset);
+
+/**
  * @brief This function is used for IO port configuration of ADC IO port voltage sampling.
+ *        This interface can be used to switch sampling IO without reinitializing the ADC.
  * @param[in]  pin - GPIO_PinTypeDef
  * @return none
  */
 void adc_base_pin_init(GPIO_PinTypeDef pin);
 
 /**
- * @brief This function is used for IO port configuration of ADC supply voltage sampling.
+ * @brief This function is used for IO port configuration of ADC IO port voltage sampling.
+ *        This interface can be used to switch sampling IO without reinitializing the ADC.
  * @param[in]  pin - GPIO_PinTypeDef
  * @return none
  */
@@ -1169,3 +1158,10 @@ void adc_vbat_init(GPIO_PinTypeDef pin);
  * @return the result of sampling.
  */
 unsigned int adc_sample_and_get_result(void);
+
+/**
+ * @brief This function serves to set adc sampling, get results and the voltage fluctuation.
+ * @param[in]  none.
+ * @return the result of sampling.
+ */
+_attribute_ram_code_ unsigned int adc_get_result_with_fluct(unsigned int *v);

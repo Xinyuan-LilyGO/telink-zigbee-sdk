@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	bdb.c
+ * @file    bdb.c
  *
- * @brief	This is the source file for bdb
+ * @brief   This is the source file for bdb
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 /**********************************************************************
  * INCLUDES
  */
@@ -634,6 +614,7 @@ _CODE_BDB_ static s32 bdb_findBindIdentifyTimeout(void *arg)
 	u16 attrLen = 0;
 
 	if(zcl_getAttrVal(g_bdbCtx.simpleDesc->endpoint, ZCL_CLUSTER_GEN_IDENTIFY, ZCL_ATTRID_IDENTIFY_TIME, &attrLen, (u8 *)&identifyTime) != ZCL_STA_SUCCESS){
+		g_bdbCtx.identifyTimer = NULL;
 		return -1;
 	}
 
@@ -959,9 +940,10 @@ _CODE_BDB_ static void bdb_networkSteerNonFactoryNew(void)
 	bdb_mgmtPermitJoiningTrig(NULL);
 }
 
-#if 0
-void bdb_nwkDiscCnfCb(void)
+
+_CODE_BDB_ void bdb_nwkDiscCnfCb(void)
 {
+#if 0
 	u8 addNebNum = g_zb_neighborTbl.additionNeighborNum;
 
 	printf("discCnfCb: addNebNum = %d\n", addNebNum);
@@ -971,8 +953,11 @@ void bdb_nwkDiscCnfCb(void)
 		printf("addr = %x, panId = %x\n", g_zb_neighborTbl.additionNeighborTbl[i].shortAddr, g_zb_neighborTbl.additionNeighborTbl[i].panId);
 		printf("permit = %x, depth = %d\n", g_zb_neighborTbl.additionNeighborTbl[i].permitJoining, g_zb_neighborTbl.additionNeighborTbl[i].depth);
 	}
-}
 #endif
+
+	zb_assocJoinReq();
+}
+
 
 /*********************************************************************
  * @fn      bdb_networkSteerFactoryNew
@@ -987,13 +972,10 @@ _CODE_BDB_ static void bdb_networkSteerFactoryNew(void)
 {
 	//g_bdbAttrs.commissioningStatus = BDB_COMMISSION_STA_IN_PROGRESS;
 	u32 scanChannels = aps_ib.aps_channel_mask;
+	u8 scanDuration = g_bdbAttrs.scanDuration;
 
 	/* perform join work flow */
-	nlme_nwkDisc_req_t req;
-	req.scanChannels = scanChannels;
-	req.scanDuration = g_bdbAttrs.scanDuration;
-
-	zdo_nwk_discovery_Start(&req, NULL);
+	zb_nwkDiscovery(scanChannels, scanDuration, bdb_nwkDiscCnfCb);
 }
 
 /*********************************************************************
@@ -1056,7 +1038,8 @@ static void bdb_task(void *arg)
 					if(g_bdbCtx.initResult == BDB_INIT_STATUS_SUCCESS){
 						if((zdo_ssInfoKeyGet() != ss_ib.activeSecureMaterialIndex) ||
 						   (g_zbInfo.macPib.phyChannelCur != g_bdbCtx.channel) ||
-						    g_zbNwkCtx.parentIsChanged){
+						    g_zbNwkCtx.parentIsChanged||
+							g_bdbCtx.forceJoin){
 								g_zbNwkCtx.parentIsChanged = 0;
 								TL_SCHEDULE_TASK(bdb_commissioningInfoSave, NULL);  //for tcRejoin when the network key is changed
 						}
@@ -1071,6 +1054,7 @@ static void bdb_task(void *arg)
 				}
 
 				g_bdbCtx.inited = 0;
+				g_bdbCtx.forceJoin = 0;
 			}
 			break;
 
@@ -1150,7 +1134,7 @@ static void bdb_task(void *arg)
 #if ZB_COORDINATOR_ROLE
 				ss_securityModeSet(SS_SEMODE_CENTRALIZED);
 #else
-				if((!g_bdbAttrs.nodeIsOnANetwork)||(ZB_IEEE_ADDR_IS_INVAILD(ss_ib.trust_center_address))){
+				if((!g_bdbAttrs.nodeIsOnANetwork)||(ZB_IEEE_ADDR_IS_INVALID(ss_ib.trust_center_address))){
 					ss_securityModeSet(SS_SEMODE_DISTRIBUTED);
 				}
 #endif
@@ -1233,7 +1217,7 @@ _CODE_BDB_ void bdb_zdoStartDevCnf(zdo_start_device_confirm_t *startDevCnf){
 				BDB_STATUS_SET(BDB_COMMISSION_STA_SUCCESS);
 				if((zdo_ssInfoKeyGet() != ss_ib.activeSecureMaterialIndex) ||
 				   (g_zbInfo.macPib.phyChannelCur != g_bdbCtx.channel) ||
-				    g_zbNwkCtx.parentIsChanged){
+				    g_zbNwkCtx.parentIsChanged || g_bdbCtx.forceJoin){
 						g_zbNwkCtx.parentIsChanged = 0;
 						TL_SCHEDULE_TASK(bdb_commissioningInfoSave, NULL);
 				}
@@ -1245,6 +1229,7 @@ _CODE_BDB_ void bdb_zdoStartDevCnf(zdo_start_device_confirm_t *startDevCnf){
 					BDB_STATUS_SET(BDB_COMMISSION_STA_REJOIN_FAILURE);
 				}
 			}
+			g_bdbCtx.forceJoin = 0;
 			evt = BDB_STATE_REJOIN_DONE;
 			TL_SCHEDULE_TASK(bdb_task, (void *)evt);
 			break;
@@ -1265,10 +1250,10 @@ _CODE_BDB_ void bdb_zdoStartDevCnf(zdo_start_device_confirm_t *startDevCnf){
 #if ZB_ROUTER_ROLE
 				g_zbNwkCtx.joinAccept = 1;
 #endif
-				TL_ZB_TIMER_SCHEDULE(zcl_touchLinkDevStartIndicate, (void *)(startDevCnf->status), 400);
+				TL_ZB_TIMER_SCHEDULE(zcl_touchLinkDevStartIndicate, (void *)((u32)(startDevCnf->status)), 400);
 			}else{
 				//g_bdbAttrs.commissioningStatus = BDB_COMMISSION_STA_NO_NETWORK;
-				zcl_touchLinkDevStartIndicate((void *)(startDevCnf->status));
+				zcl_touchLinkDevStartIndicate((void *)((u32)(startDevCnf->status)));
 			}
 			break;
 #endif
@@ -1278,7 +1263,7 @@ _CODE_BDB_ void bdb_zdoStartDevCnf(zdo_start_device_confirm_t *startDevCnf){
 				//g_bdbAttrs.commissioningStatus = BDB_COMMISSION_STA_SUCCESS;
 				g_bdbAttrs.nodeIsOnANetwork = 1;
 				BDB_STATUS_SET(BDB_COMMISSION_STA_SUCCESS);
-				if(!ZB_IEEE_ADDR_IS_INVAILD(ss_ib.trust_center_address)){
+				if(!ZB_IEEE_ADDR_IS_INVALID(ss_ib.trust_center_address) && ss_ib.securityLevel){
 					evt = BDB_EVT_COMMISSIONING_NETWORK_STEER_RETRIEVE_TCLINK_KEY;
 				}else{
 					evt = BDB_EVT_COMMISSIONING_NETWORK_STEER_PERMITJOIN;
@@ -1332,12 +1317,16 @@ _CODE_BDB_ void bdb_zdoStartDevCnf(zdo_start_device_confirm_t *startDevCnf){
  */
 _CODE_BDB_ static void bdb_touchLinkCallback(u8 status, void *arg)
 {
+	//printf("touchLinkCb: sta = %x\n", status);
+
 	u32 evt = BDB_EVT_IDLE;
 	if(status == ZCL_ZLL_TOUCH_LINK_STA_TARGET_START){
+		zb_nwkDiscoveryStop();
+
 		BDB_STATE_SET(BDB_STATE_COMMISSIONING_TOUCHLINK);
 		g_bdbAttrs.commissioningMode.touchlink = 1;
 		g_bdbCtx.role = BDB_COMMISSIONING_ROLE_TARGET;
-	}else if (status == ZCL_ZLL_TOUCH_LINK_STA_NO_SERVER){
+	}else if(status == ZCL_ZLL_TOUCH_LINK_STA_NO_SERVER){
 		/*
 		 * if no scan response received, start classic commissioning,
 		 * resume some information which is changed during touch link
@@ -1473,7 +1462,7 @@ _CODE_BDB_ u8 bdb_networkFormationStart(void)
 #if ZB_COORDINATOR_ROLE
 	ss_securityModeSet(SS_SEMODE_CENTRALIZED);
 #else
-	if((!g_bdbAttrs.nodeIsOnANetwork)||(ZB_IEEE_ADDR_IS_INVAILD(ss_ib.trust_center_address))){
+	if((!g_bdbAttrs.nodeIsOnANetwork)||(ZB_IEEE_ADDR_IS_INVALID(ss_ib.trust_center_address))){
 		ss_securityModeSet(SS_SEMODE_DISTRIBUTED);
 	}
 #endif
@@ -1576,7 +1565,15 @@ _CODE_BDB_ u8 bdb_init(af_simple_descriptor_t *simple_desc, bdb_commissionSettin
 	BDB_STATE_SET(BDB_STATE_INIT);
 
 	/* security config, must be first. */
-	ss_zdoInit(TRUE);
+#if SECURITY_ENABLE
+	if(g_bdbCtx.securityDisable){
+		ss_zdoInit(FALSE);
+	}else{
+		ss_zdoInit(TRUE);
+	}
+#else
+	ss_zdoInit(FALSE);
+#endif
 
 	/* pre-configure the link key here. */
 	bdb_linkKeyCfg(setting, g_bdbCtx.factoryNew);
@@ -1621,6 +1618,47 @@ _CODE_BDB_ u8 bdb_init(af_simple_descriptor_t *simple_desc, bdb_commissionSettin
 	u8 len = 0;
 	tl_zbMacAttrGet(MAC_PHY_ATTR_CURRENT_CHANNEL, &g_bdbCtx.channel, &len);
 	return 0;
+}
+
+
+/*********************************************************************
+ * @fn      bdb_join_direct()
+ *
+ * @brief   join/establish a network directly
+ *
+ * @param   channel
+ * 			panId
+ * 			shortAddr
+ * 			extPanId
+ * 		    nwkKey
+ * 		    inited
+ *
+ * @return  None
+ */
+_CODE_BDB_ u8 bdb_join_direct(u8 channel, u16 panId, u16 shortAddr, u8 *extPanId, u8 *nwkKey, u8 type, u8 inited, u8 *tcAddr){
+	u8 ret = FAILURE;
+
+	if(BDB_STATE_GET() == BDB_STATE_IDLE){
+		g_bdbCtx.forceJoin = 1;
+        ss_securityModeSet(type);
+		zb_joinAFixedNetwork(channel,  panId, shortAddr, extPanId, nwkKey, tcAddr);
+
+		if(inited){			
+			aps_ib.aps_authenticated = 1;
+			aps_ib.aps_use_insecure_join = FALSE; /* AIB */
+
+#if ZB_COORDINATOR_ROLE
+			bdb_coordinatorStart();
+#elif ZB_ROUTER_ROLE
+			bdb_routerStart();
+#elif ZB_ED_ROLE
+			bdb_endDeviceStart(1);
+#endif
+		}
+		ret = SUCCESS;
+	}
+
+	return ret;
 }
 
 
@@ -1877,7 +1915,7 @@ _CODE_BDB_ u8 bdb_preInstallCodeLoad(u8 *keyType, u8 derivedKey[])
  */
 _CODE_BDB_ void bdb_preInstallCodeAdd(addrExt_t ieeeAddr, u8 *pInstallCode)
 {
-	if(!pInstallCode || ZB_IS_64BIT_ADDR_INVAILD(ieeeAddr) || ZB_IS_64BIT_ADDR_ZERO(ieeeAddr)){
+	if(!pInstallCode || ZB_IS_64BIT_ADDR_INVALID(ieeeAddr) || ZB_IS_64BIT_ADDR_ZERO(ieeeAddr)){
 		return;
 	}
 

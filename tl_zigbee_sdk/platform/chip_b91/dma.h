@@ -9,38 +9,17 @@
  * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
 /**	@page DMA
@@ -55,7 +34,7 @@
  */
 #ifndef DMA_H_
 #define DMA_H_
-#include "reg_include/register_b91.h"
+#include <reg_include/register.h>
  typedef enum{
 	DMA0=0,
 	DMA1,
@@ -153,13 +132,15 @@ typedef struct {
 	unsigned int auto_en:1;/*/*auto_en : 31*/
 }dma_config_t;
 
-
+/*
+ * If volatile is not added, the compiler optimization will affect the configuration of the chain, which will lead to the abnormal work of pwm/audio(when using the chain function).
+ */
 typedef struct {
-	unsigned int dma_chain_ctl;
-	unsigned int dma_chain_src_addr;
-	unsigned int dma_chain_dst_addr;
-	unsigned int dma_chain_data_len;
-	unsigned int dma_chain_llp_ptr;
+	volatile unsigned int dma_chain_ctl;
+	volatile unsigned int dma_chain_src_addr;
+	volatile unsigned int dma_chain_dst_addr;
+	volatile unsigned int dma_chain_data_len;
+	volatile unsigned int dma_chain_llp_ptr;
 }dma_chain_config_t ;
 
 
@@ -168,11 +149,11 @@ typedef struct {
  * @param[in] chn    - dma channel
  * @param[in] config - the prt of dma_config that configured control register
  * @return    none
+ * @note      When a certain dma channel has not finished the transmission (bit 0 of reg_dma_ctr0(chn): 1-the transmission has not been completed,0-the transmission is completed),need to disable dma before writing to the dma register.
  */
 static inline void dma_config(dma_chn_e chn ,dma_config_t *config)
 {
-	BM_CLR(reg_dma_ctrl(chn),BIT_RNG(4,31));
-	reg_dma_ctrl(chn) |= (*(unsigned int*)config)<<4;
+	reg_dma_ctrl(chn) = (reg_dma_ctrl(chn)&(~BIT_RNG(4,31)))|((*(unsigned int*)config)<<4);
 }
 
 
@@ -287,6 +268,7 @@ static inline void dma_clr_abt_irq_status(dma_irq_chn_e abt_chn)
  * @param[in] size_byte  - the address of dma tx/rx size .The maximum transmission length of DMA is 0xFFFFFC bytes  and cannot exceed this length.
  * @param[in] byte_width -  dma   tx/rx  width
  * @return    none 
+ * @note      When a certain dma channel has not finished the transmission (bit 0 of reg_dma_ctr0(chn): 1-the transmission has not been completed,0-the transmission is completed),need to disable dma before writing to the dma register.
  */
 static inline void dma_set_size(dma_chn_e chn,unsigned int size_byte,dma_transfer_width_e byte_width)
 {
@@ -314,12 +296,13 @@ static inline unsigned int dma_cal_size(unsigned int size_byte,dma_transfer_widt
  * @param[in]  chn      - DMA channel
  * @param[in]  src_addr - the address of source.
  * @param[in]  dst_addr - the address of destination.
- * @return    none
+ * @return     none
+ * @note       When a certain dma channel has not finished the transmission (bit 0 of reg_dma_ctr0(chn): 1-the transmission has not been completed,0-the transmission is completed),need to disable dma before writing to the dma register.
  */
 static inline void dma_set_address(dma_chn_e chn,unsigned int src_addr,unsigned int dst_addr)
 {
-	reg_dma_src_addr(chn)=src_addr;
-	reg_dma_dst_addr(chn)=dst_addr;
+	reg_dma_src_addr(chn)= (unsigned int)convert_ram_addr_cpu2bus(src_addr);
+	reg_dma_dst_addr(chn)= (unsigned int)convert_ram_addr_cpu2bus(dst_addr);
 }
 
 
@@ -327,25 +310,27 @@ static inline void dma_set_address(dma_chn_e chn,unsigned int src_addr,unsigned 
  * @brief   this function set source address for DMA,
  * @param[in]  chn - DMA channel
  * @param[in]  src_addr - the address of source.
- *  */
+ * @note When a certain dma channel has not finished the transmission (bit 0 of reg_dma_ctr0(chn) is 1),need to disable dma before writing to the dma register
+ */
 static inline void dma_set_src_address(dma_chn_e chn,unsigned int src_addr)
 {
-	reg_dma_src_addr(chn)=src_addr;
+	reg_dma_src_addr(chn)= (unsigned int)convert_ram_addr_cpu2bus(src_addr);
 }
 
 /**
  * @brief   this function set destination address for DMA,
  * @param[in]  chn - DMA channel
  * @param[in]  dst_addr - the address of destination.
- *  */
+ * @note       When a certain dma channel has not finished the transmission (bit 0 of reg_dma_ctr0(chn): 1-the transmission has not been completed,0-the transmission is completed),need to disable dma before writing to the dma register.
+ */
 static inline void dma_set_dst_address(dma_chn_e chn,unsigned int dst_addr)
 {
-	reg_dma_dst_addr(chn)=dst_addr;
+	reg_dma_dst_addr(chn)= (unsigned int)convert_ram_addr_cpu2bus(dst_addr);
 }
 
 
 /**
- * @brief   this function set reset  DMA,
+ * @brief   this function set reset DMA,DMA logic and registers will be reset.
  * @return    none
  */
 static inline void dma_reset(void)

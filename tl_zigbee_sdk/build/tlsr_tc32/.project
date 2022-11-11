@@ -78,7 +78,6 @@
 		<nature>org.eclipse.cdt.core.cnature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
-		<nature>com.telink.tc32eclipse.core.TC32nature</nature>
 	</natures>
 	<linkedResources>
 		<link>

@@ -9,45 +9,24 @@
  * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
 #ifndef PWM_H_
 #define PWM_H_
+#include <reg_include/register.h>
 #include "gpio.h"
 #include "dma.h"
-#include "reg_include/register_b91.h"
 
 #define get_pwmid(gpio)     ((gpio==PWM_PWM0_PB4) ? 0 : (  \
                      (gpio==PWM_PWM0_PC0) 	? 0 : (  \
@@ -227,32 +206,26 @@ static inline void pwm_32k_chn_update_duty_cycle(void){
 }
 
 /**
- * @brief     This function servers to start the pwm.
- * @param[in] id - variable of enum to select the pwm number.
+ * @brief     This function servers to start the pwm,can have more than one PWM open at the same time.
+ * @param[in] en - variable of enum to select the pwm number.
  * @return	  none.
  */
-static inline void pwm_start(pwm_id_e id){
-	if(PWM0_ID == id){
-		BM_SET(reg_pwm0_enable, BIT(0));
-	}
-	else{
-		BM_SET(reg_pwm_enable, BIT(id));
-	}
+static inline void pwm_start(pwm_en_e en){
+
+		BM_SET(reg_pwm_enable, en);
+
 }
 
 
 /**
- * @brief     This function servers to stop the pwm.
- * @param[in] id - variable of enum to select the pwm number.
+ * @brief     This function servers to stop the pwm,can have more than one PWM stop at the same time.
+ * @param[in] en - variable of enum to select the pwm number.
  * @return	  none.
  */
-static inline void pwm_stop(pwm_id_e id){
-	if(PWM0_ID == id){
-		BM_CLR(reg_pwm0_enable, BIT(0));
-	}
-	else{
-		BM_CLR(reg_pwm_enable, BIT(id));
-	}
+static inline void pwm_stop(pwm_en_e en){
+
+		BM_CLR(reg_pwm_enable, en);
+
 }
 
 
@@ -344,11 +317,11 @@ static inline void pwm_clr_irq_mask(pwm_irq_e mask){
 
 	if(mask==FLD_PWM0_IR_FIFO_IRQ)
 	{
-		BM_SET(reg_pwm_irq_mask(1), BIT(0));
+		BM_CLR(reg_pwm_irq_mask(1), BIT(0));
 	}
 	else
 	{
-		BM_SET(reg_pwm_irq_mask(0), mask);
+		BM_CLR(reg_pwm_irq_mask(0), mask);
 	}
 
 }
@@ -382,11 +355,11 @@ static inline void pwm_clr_irq_status(pwm_irq_e status){
 
 	if(status==FLD_PWM0_IR_FIFO_IRQ)
 	{
-		BM_SET(reg_pwm_irq_sta(1), BIT(0));
+		reg_pwm_irq_sta(1) = status;
 	}
 	else
 	{
-		BM_SET(reg_pwm_irq_sta(0), status);
+		reg_pwm_irq_sta(0) = status;
 	}
 
 }
@@ -421,8 +394,8 @@ static inline void pwm_set_pwm0_tcmp_and_tmax_shadow(unsigned short max_tick, un
  * @return	  none.
  */
 static inline void pwm_set_pwm0_pulse_num(unsigned short pulse_num){
-		reg_pwm0_pulse_num0 = pulse_num;
-		reg_pwm0_pulse_num1 = pulse_num>>8;
+		reg_pwm0_pulse_num = pulse_num;
+
 }
 
 
@@ -514,6 +487,9 @@ static inline void pwm_set_pwm0_ir_fifo_cfg_data(unsigned short pulse_num, unsig
  * @brief     This function servers to configure DMA channel and some configures.
  * @param[in] chn - to select the DMA channel.
  * @return    none
+ * @note      In the case that the DMA transfer is not completed(bit 0 of reg_dma_ctr0(chn): 1-the transmission has not been completed,0-the transmission is completed), re-calling the DMA-related functions may cause problems.
+ *            If you must do this, you must perform the following sequence:
+ *            1. dma_chn_dis(chn) 2.pwm_reset()3.pwm_set_dma_buf()/pwm_ir_dma_mode_start()
  */
 void pwm_set_dma_config(dma_chn_e chn);
 
@@ -575,6 +551,15 @@ static inline void pwm_32k_chn_dis(pwm_clk_32k_en_chn_e pwm_32K_en_chn)
     BM_CLR(reg_pwm_mode32k, pwm_32K_en_chn);
 }
 
+/**
+ * @brief      This function reset pwm module,all pwm logic will be reset.
+ * @return     none
+ */
+static inline void pwm_reset(void)
+{
+	reg_rst0 &= (~FLD_RST0_PWM );
+	reg_rst0 |=FLD_RST0_PWM;
+}
 
 #endif
 

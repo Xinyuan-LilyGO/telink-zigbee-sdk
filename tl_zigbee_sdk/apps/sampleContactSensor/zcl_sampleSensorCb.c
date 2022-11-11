@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	zcl_sampleSensorCb.c
+ * @file    zcl_sampleSensorCb.c
  *
- * @brief	This is the source file for zcl_sampleSensorCb
+ * @brief   This is the source file for zcl_sampleSensorCb
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
- *          All rights reserved.
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ *			All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #if (__PROJECT_TL_CONTACT_SENSOR__)
 
 /**********************************************************************
@@ -533,19 +513,14 @@ void sampleSensor_zclCheckInCmdSend(void)
 
 s32 sampleSensor_zclCheckInTimerCb(void *arg)
 {
-	static u32 cnt = 0;
 	zcl_pollCtrlAttr_t *pPollCtrlAttr = zcl_pollCtrlAttrGet();
 
 	if(!pPollCtrlAttr->chkInInterval){
-		cnt = 0;
 		zclCheckInTimerEvt = NULL;
 		return -1;
 	}
 
-	if(++cnt >= pPollCtrlAttr->chkInInterval){
-		cnt = 0;
-		sampleSensor_zclCheckInCmdSend();
-	}
+	sampleSensor_zclCheckInCmdSend();
 
 	return 0;
 }
@@ -556,7 +531,7 @@ void sampleSensor_zclCheckInStart(void)
 		zcl_pollCtrlAttr_t *pPollCtrlAttr = zcl_pollCtrlAttrGet();
 
 		if(!zclCheckInTimerEvt){
-			zclCheckInTimerEvt = TL_ZB_TIMER_SCHEDULE(sampleSensor_zclCheckInTimerCb, NULL, POLL_RATE_QUARTERSECONDS);
+			zclCheckInTimerEvt = TL_ZB_TIMER_SCHEDULE(sampleSensor_zclCheckInTimerCb, NULL, pPollCtrlAttr->chkInInterval * POLL_RATE_QUARTERSECONDS);
 
 			if(pPollCtrlAttr->chkInInterval){
 				sampleSensor_zclCheckInCmdSend();
@@ -572,24 +547,15 @@ void sampleSensor_zclSetFastPollMode(bool fastPollMode)
 	isFastPollMode = fastPollMode;
 	u32 pollRate = fastPollMode ? pPollCtrlAttr->shortPollInterval : pPollCtrlAttr->longPollInterval;
 
-	zb_setPollRate(pollRate * QUEUE_POLL_RATE);
+	zb_setPollRate(pollRate * POLL_RATE_QUARTERSECONDS);
 }
 
 s32 sampleSensor_zclFastPollTimeoutCb(void *arg)
 {
-	static u32 cnt = 0;
-	u32 fastPollTimeoutCnt = (u32)arg;
+	sampleSensor_zclSetFastPollMode(FALSE);
 
-	if(++cnt >= fastPollTimeoutCnt){
-		cnt = 0;
-
-		sampleSensor_zclSetFastPollMode(FALSE);
-
-		zclFastPollTimeoutTimerEvt = NULL;
-		return -1;
-	}else{
-		return 0;
-	}
+	zclFastPollTimeoutTimerEvt = NULL;
+	return -1;
 }
 
 static status_t sampleSensor_zclPollCtrlChkInRspCmdHandler(zcl_chkInRsp_t *pCmd)
@@ -618,7 +584,7 @@ static status_t sampleSensor_zclPollCtrlChkInRspCmdHandler(zcl_chkInRsp_t *pCmd)
 		if(!zclFastPollTimeoutTimerEvt && fastPollTimeoutCnt){
 			sampleSensor_zclSetFastPollMode(TRUE);
 
-			zclFastPollTimeoutTimerEvt = TL_ZB_TIMER_SCHEDULE(sampleSensor_zclFastPollTimeoutCb, (void *)fastPollTimeoutCnt, POLL_RATE_QUARTERSECONDS);
+			zclFastPollTimeoutTimerEvt = TL_ZB_TIMER_SCHEDULE(sampleSensor_zclFastPollTimeoutCb, NULL, fastPollTimeoutCnt * POLL_RATE_QUARTERSECONDS);
 		}
 	}else{
 		//continue in normal operation and not required to go into fast poll mode.
@@ -648,6 +614,7 @@ static status_t sampleSensor_zclPollCtrlSetLongPollIntervalCmdHandler(zcl_setLon
 	if((pCmd->newLongPollInterval >= 0x04) && (pCmd->newLongPollInterval <= 0x6E0000)
 		&& (pCmd->newLongPollInterval <= pPollCtrlAttr->chkInInterval) && (pCmd->newLongPollInterval >= pPollCtrlAttr->shortPollInterval)){
 		pPollCtrlAttr->longPollInterval = pCmd->newLongPollInterval;
+		zb_setPollRate(pCmd->newLongPollInterval * POLL_RATE_QUARTERSECONDS);
 	}else{
 		return ZCL_STA_INVALID_VALUE;
 	}
@@ -662,6 +629,7 @@ static status_t sampleSensor_zclPollCtrlSetShortPollIntervalCmdHandler(zcl_setSh
 	if((pCmd->newShortPollInterval >= 0x01) && (pCmd->newShortPollInterval <= 0xff)
 		&& (pCmd->newShortPollInterval <= pPollCtrlAttr->longPollInterval)){
 		pPollCtrlAttr->shortPollInterval = pCmd->newShortPollInterval;
+		zb_setPollRate(pCmd->newShortPollInterval * POLL_RATE_QUARTERSECONDS);
 	}else{
 		return ZCL_STA_INVALID_VALUE;
 	}

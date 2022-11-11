@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	drv_radio.h
+ * @file    drv_radio.h
  *
- * @brief	This is the header file for drv_radio
+ * @brief   This is the header file for drv_radio
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #pragma once
 
 #if defined(MCU_CORE_826x)
@@ -52,8 +32,17 @@
 /* radio module reset */
 #define ZB_RADIO_RESET()					 			RF_reset()
 
-/* trx swith */
+/* RF is busy */
+#define RF_DMA_BUSY()									0
+
+/* trx switch */
 #define ZB_RADIO_TRX_SWITCH(mode, chn) 					RF_TrxStateSet(mode, chn)
+
+/* trx off auto mode */
+#define ZB_RADIO_TRX_OFF_AUTO_MODE()					RF_SetTxRxOffAutoMode()
+
+/* srx start*/
+#define ZB_RADIO_SRX_START(tick)						RF_StartSrx(tick, 0x0fffffff)
 
 /* set tx power */
 #define ZB_RADIO_TX_POWER_SET(level)					RF_PowerLevelSet(level)
@@ -110,9 +99,12 @@
 														}while(0)
 
 /* set rx mode, maxium receiver buffer size, enable Rx/Tx interrupt */
-#define ZB_RADIO_TRX_CFG(len)							do{	\
-															RF_rx_cfg(len, 0);  \
+#define ZB_RADIO_TRX_CFG(size)							do{	\
+															/* disable SRX timeout interrupt */\
+															write_reg8(0xf03, read_reg8(0xf03) & 0xfb);	\
+															RF_rx_cfg(size, 0);  \
 															dma_irq_disable(FLD_DMA_CHN_RF_RX | FLD_DMA_CHN_RF_TX); \
+															rf_irq_disable(FLD_RF_IRQ_ALL);	\
 															rf_irq_enable(FLD_RF_IRQ_RX | FLD_RF_IRQ_TX);\
 															irq_set_mask(FLD_IRQ_ZB_RT_EN); \
 														}while(0)
@@ -174,6 +166,20 @@
 															lqi = 255*(rssi - minEd)/(maxEd - minEd); 	\
 														}while(0)
 
+/* RSSI: [-106 ~ -58]
+ *
+ *  RSSI    LQI		COST
+ *  -70		190      1
+ *  -77		154		 3
+ *  -87		100		 5
+ *  -97		0		 7
+ */
+#define ZB_LQI_TO_PATH_COST(lqi, path_cost) 			do{ \
+															if(lqi > 190){path_cost = 1;}		\
+															else if(lqi > 154){path_cost = 3;}	\
+															else if(lqi > 100){path_cost = 5;}	\
+															else{path_cost = 7;}				\
+														}while(0)
 #elif defined(MCU_CORE_8258)
 /*******************************************************************************************************
  * 									Radio interface for 8258
@@ -181,8 +187,17 @@
 /* radio module reset */
 #define ZB_RADIO_RESET()
 
-/* trx swith */
+/* RF is busy */
+#define RF_DMA_BUSY()									is_rf_receiving_pkt()
+
+/* trx switch */
 #define ZB_RADIO_TRX_SWITCH(mode, chn) 					rf_trx_state_set(mode, chn)
+
+/* trx off auto mode */
+#define ZB_RADIO_TRX_OFF_AUTO_MODE()					rf_set_tx_rx_off_auto_mode()
+
+/* srx start*/
+#define ZB_RADIO_SRX_START(tick)						rf_start_srx(tick)
 
 /* set tx power */
 #define ZB_RADIO_TX_POWER_SET(level)					rf_set_power_level_index(level)
@@ -243,8 +258,11 @@
 
 /* set rx mode, maxium receiver buffer size, enable Rx/Tx interrupt */
 #define ZB_RADIO_TRX_CFG(size)							do{ \
+															/* disable SRX timeout interrupt */\
+															write_reg8(0xf03, read_reg8(0xf03) & 0xfb);	\
 															rf_rx_cfg(size, 0); \
 															dma_irq_disable(FLD_DMA_CHN_RF_RX | FLD_DMA_CHN_RF_TX); \
+															rf_irq_disable(FLD_RF_IRQ_ALL);	\
 															rf_irq_enable(FLD_RF_IRQ_RX | FLD_RF_IRQ_TX); \
 															irq_set_mask(FLD_IRQ_ZB_RT_EN); \
 														}while(0)
@@ -306,6 +324,22 @@
 															lqi = 255*(rssi - minEd)/(maxEd - minEd); 	\
 														}while(0)
 
+/* RSSI: [-99 ~ -15]
+ *
+ *  RSSI    LQI		COST
+ *  -60		118      1		//excellent
+ *  -68		94		 2		//good
+ *  -76		69		 3		//ok
+ *  -84		45		 5		//weak
+ *  -99		0		 7
+ */
+#define ZB_LQI_TO_PATH_COST(lqi, path_cost) 			do{ \
+															if(lqi > 118){path_cost = 1;}		\
+															else if(lqi > 94){path_cost = 2;}	\
+															else if(lqi > 69){path_cost = 3;}	\
+															else if(lqi > 45){path_cost = 5;}	\
+															else{path_cost = 7;}				\
+														}while(0)
 #elif defined(MCU_CORE_8278)
 /*******************************************************************************************************
  * 									Radio interface for 8278
@@ -313,8 +347,17 @@
 /* radio module reset */
 #define ZB_RADIO_RESET()
 
-/* trx swith */
+/* RF is busy */
+#define RF_DMA_BUSY()									is_rf_receiving_pkt()
+
+/* trx switch */
 #define ZB_RADIO_TRX_SWITCH(mode, chn) 					rf_trx_state_set(mode, chn)
+
+/* trx off auto mode */
+#define ZB_RADIO_TRX_OFF_AUTO_MODE()					rf_set_tx_rx_off_auto_mode()
+
+/* srx start*/
+#define ZB_RADIO_SRX_START(tick)						rf_start_srx(tick)
 
 /* set tx power */
 #define ZB_RADIO_TX_POWER_SET(level)					rf_set_power_level_index(level)
@@ -374,9 +417,12 @@
 														}while(0)
 
 /* set rx mode, maxium receiver buffer size, enable Rx/Tx interrupt */
-#define ZB_RADIO_TRX_CFG(size)							do{ \
+#define ZB_RADIO_TRX_CFG(size)							do{	\
+															/* disable SRX timeout interrupt */\
+															write_reg8(0xf03, read_reg8(0xf03) & 0xfb);	\
 															rf_rx_cfg(size, 0); \
 															dma_irq_disable(FLD_DMA_CHN_RF_RX | FLD_DMA_CHN_RF_TX); \
+															rf_irq_disable(FLD_RF_IRQ_ALL);	\
 															rf_irq_enable(FLD_RF_IRQ_RX | FLD_RF_IRQ_TX); \
 															irq_set_mask(FLD_IRQ_ZB_RT_EN); \
 														}while(0)
@@ -438,6 +484,22 @@
 															lqi = 255*(rssi - minEd)/(maxEd - minEd); 	\
 														}while(0)
 
+/* RSSI: [-99 ~ -15]
+ *
+ *  RSSI    LQI		COST
+ *  -60		118      1		//excellent
+ *  -68		94		 2		//good
+ *  -76		69		 3		//ok
+ *  -84		45		 5		//weak
+ *  -99		0		 7
+ */
+#define ZB_LQI_TO_PATH_COST(lqi, path_cost) 			do{ \
+															if(lqi > 118){path_cost = 1;}		\
+															else if(lqi > 94){path_cost = 2;}	\
+															else if(lqi > 69){path_cost = 3;}	\
+															else if(lqi > 45){path_cost = 5;}	\
+															else{path_cost = 7;}				\
+														}while(0)
 #elif defined(MCU_CORE_B91)
 /*******************************************************************************************************
  * 									Radio interface for B91
@@ -445,8 +507,17 @@
 /* radio module reset */
 #define ZB_RADIO_RESET()
 
-/* trx swith */
+/* RF is busy */
+#define RF_DMA_BUSY()									rf_receiving_flag()
+
+/* trx switch */
 #define ZB_RADIO_TRX_SWITCH(mode, chn) 					rf_set_trx_state(mode, chn)
+
+/* trx off auto mode */
+#define ZB_RADIO_TRX_OFF_AUTO_MODE()					rf_set_tx_rx_off_auto_mode()
+
+/* srx start*/
+#define ZB_RADIO_SRX_START(tick)						rf_start_srx(tick)
 
 /* set tx power */
 #define ZB_RADIO_TX_POWER_SET(level)					rf_set_power_level_index(level)
@@ -507,6 +578,8 @@
 
 /* set Rx mode, maxium receiver buffer size, enable Rx/Tx interrupt */
 #define ZB_RADIO_TRX_CFG(size)							do{ \
+															/* disable SRX timeout interrupt */\
+															write_reg8(0x140a03, read_reg8(0x140a03) & 0xfb);	\
 															rf_set_rx_maxlen(size);							\
 															rf_set_rx_dma_config();							\
 															rf_set_rx_dma_fifo_num(0);						\
@@ -576,5 +649,22 @@
 															if(rssi > maxEd){rssi = maxEd;}				\
 															if(rssi < minEd){rssi = minEd;}				\
 															lqi = 255*(rssi - minEd)/(maxEd - minEd); 	\
+														}while(0)
+
+/* RSSI: [-99 ~ -15]
+ *
+ *  RSSI    LQI		COST
+ *  -60		118      1		//excellent
+ *  -68		94		 2		//good
+ *  -76		69		 3		//ok
+ *  -84		45		 5		//weak
+ *  -99		0		 7
+ */
+#define ZB_LQI_TO_PATH_COST(lqi, path_cost) 			do{ \
+															if(lqi > 118){path_cost = 1;}		\
+															else if(lqi > 94){path_cost = 2;}	\
+															else if(lqi > 69){path_cost = 3;}	\
+															else if(lqi > 45){path_cost = 5;}	\
+															else{path_cost = 7;}				\
 														}while(0)
 #endif

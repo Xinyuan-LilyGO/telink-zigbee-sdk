@@ -9,49 +9,32 @@
  * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
 #ifndef AUDIO_REG_H
 #define AUDIO_REG_H
-#include "../sys.h"
+#include "soc.h"
 
-#define 	REG_AUDIO_AHB_BASE		    0x120000
+#define 	REG_AUDIO_AHB_BASE		    0x80120000
 #define 	REG_CODEC_BASE_ADDR		    0x120200
 #define 	REG_AUDIO_APB_BASE		    0x140500
 #define 	reg_fifo_buf_adr(i) 		REG_AUDIO_AHB_BASE+(i)*0x40
-#define   reg_audio_en				    REG_ADDR8(REG_AUDIO_APB_BASE+0x00)
+#define     reg_audio_en				    REG_ADDR8(REG_AUDIO_APB_BASE+0x00)
+
+#define reg_audio_codec_reg(x)			REG_ADDR8(REG_CODEC_BASE_ADDR+((x)<<2))
+
+
 enum
 {
 	FLD_AUDIO_I2S_CLK_EN               =  BIT(0),
@@ -229,6 +212,15 @@ enum
 };
 
 
+#define   reg_audio_codec_stat2_ctr          REG_ADDR8(REG_CODEC_BASE_ADDR+(0x01<<2))
+#define   addr_audio_codec_stat2_ctr         0x01
+enum
+{
+	FLD_AUDIO_CODEC_ADC12_SMUTE_IN_PROG =  BIT(6),
+	FLD_AUDIO_CODEC_DAC_SMUTE_IN_PROG  	=  BIT(7),
+};
+
+
 #define   reg_audio_codec_vic_ctr          REG_ADDR8(REG_CODEC_BASE_ADDR+(0x06<<2))
 #define   addr_audio_codec_vic_ctr          0x06
 enum
@@ -242,6 +234,13 @@ enum
 
 #define   reg_audio_codec_dac_itf_ctr           REG_ADDR8(REG_CODEC_BASE_ADDR+(0x08<<2))
 #define   addr_audio_codec_dac_itf_ctr           0x08
+enum
+{
+	FLD_AUDIO_CODEC_DAC_AUDIOIF         =  BIT_RNG(0,1),
+	FLD_AUDIO_CODEC_SB_AICR_DAC        	=  BIT(4),
+	FLD_AUDIO_CODEC_DAC_SLAVE        	=  BIT(5),
+	FLD_AUDIO_CODEC_DAC_ADWL            =  BIT_RNG(6,7),
+};
 
 #define   reg_audio_codec_adc_itf_ctr           REG_ADDR8(REG_CODEC_BASE_ADDR+(0x09<<2))
 #define   addr_audio_codec_adc_itf_ctr           0x09
@@ -389,11 +388,137 @@ enum
 };
 
 #define   reg_audio_adc2_gain           REG_ADDR8(REG_CODEC_BASE_ADDR+(0x2d<<2))
+#define   addr_audio_adc2_gain           0x2d
 enum
 {
 	FLD_AUDIO_CODEC_ADC_GID2    =  BIT_RNG(0,5),
 
 };
 
+
+#define   reg_audio_mix_dac_l           REG_ADDR8(REG_CODEC_BASE_ADDR+(0x34<<2))
+#define   addr_reg_audio_mix_dac_l          0x34
+enum
+{
+	FLD_AUDIO_CODEC_DAC_MIXER_GAIN_L        =  BIT_RNG(0,4),
+	FLD_AUDIO_CODEC_DAC_MIXER_GAIN_SEL      =  BIT(7),
+};
+
+#define   reg_audio_mix_dac_r           REG_ADDR8(REG_CODEC_BASE_ADDR+(0x35<<2))
+#define   addr_reg_audio_mix_dac_r          0x35
+enum
+{
+	FLD_AUDIO_CODEC_DAC_MIXER_GAIN_R        =  BIT_RNG(0,4),
+};
+
+
+#define   reg_audio_mix_adc_l           REG_ADDR8(REG_CODEC_BASE_ADDR+(0x36<<2))
+#define   addr_reg_audio_mix_adc_l          0x36
+enum
+{
+	FLD_AUDIO_CODEC_ADC_MIXER_GAIN_L        =  BIT_RNG(0,4),
+	FLD_AUDIO_CODEC_ADC_MIXER_GAIN_SEL      =  BIT(7),
+};
+
+#define   reg_audio_mix_adc_r           REG_ADDR8(REG_CODEC_BASE_ADDR+(0x37<<2))
+#define   addr_reg_audio_adc_dac_r          0x37
+enum
+{
+	FLD_AUDIO_CODEC_ADC_MIXER_GAIN_R        =  BIT_RNG(0,4),
+};
+//Indirect Register
+//AGC control Register
+#define reg_audio_dac_agc_cmd				REG_ADDR8(REG_CODEC_BASE_ADDR+(0x38<<2))
+#define	addr_audio_dac_agc_cmd				0x38
+enum
+{
+	FLD_AUDIO_CODEC_DAC_AGC_ADD     =  BIT_RNG(0,5),
+	FLD_AUDIO_CODEC_DAC_AGC_LOAD    =  BIT(6),
+	FLD_AUDIO_CODEC_DAC_AGC_EN      =  BIT(7),
+};
+
+#define reg_audio_dac_agc_data				REG_ADDR8(REG_CODEC_BASE_ADDR+(0x39<<2))
+#define	addr_audio_dac_agc_data				0x39
+
+#define	ind_reg_audio_dac_agc_0					0x00
+enum
+{
+	FLD_AUDIO_CODEC_DAC_AGC_LTHRES    	=  BIT_RNG(0,4),
+	FLD_AUDIO_CODEC_DAC_AGC_LR_DRC      =  BIT(7),
+};
+
+#define	ind_reg_audio_dac_agc_1					0x01
+enum
+{
+	FLD_AUDIO_CODEC_DAC_AGC_LCOMP    	=  BIT_RNG(0,2),
+};
+
+#define	ind_reg_audio_dac_agc_2					0x02
+enum
+{
+	FLD_AUDIO_CODEC_DAC_AGC_RTHRES    	=  BIT_RNG(0,4),
+};
+#define	ind_reg_audio_dac_agc_3					0x03
+enum
+{
+	FLD_AUDIO_CODEC_DAC_AGC_RCOMP    	=  BIT_RNG(0,2),
+};
+
+
+#define reg_audio_adc_agc_cmd				REG_ADDR8(REG_CODEC_BASE_ADDR+(0x3a<<2))
+#define	addr_audio_adc_agc_cmd				0x3a
+enum
+{
+	FLD_AUDIO_CODEC_ADC_AGC_ADD    =  BIT_RNG(0,5),
+	FLD_AUDIO_CODEC_ADC_AGC_LOAD      =  BIT(6),
+
+};
+
+#define reg_audio_adc_agc_data				REG_ADDR8(REG_CODEC_BASE_ADDR+(0x3b<<2))
+#define	addr_audio_adc_agc_data				0x3b
+
+
+
+
+
+#define	ind_reg_audio_agc_0					0x00
+enum
+{
+	FLD_AUDIO_CODEC_ADC_AGC_TARGET    	=  BIT_RNG(2,5),
+	FLD_AUDIO_CODEC_ADC_AGC_STEREO      =  BIT(6),
+};
+
+#define	ind_reg_audio_agc_1					0x01
+enum
+{
+	FLD_AUDIO_CODEC_ADC_AGC_HOLD    	=  BIT_RNG(0,3),
+	FLD_AUDIO_CODEC_ADC_AGC_NG_THR    	=  BIT_RNG(4,6),
+	FLD_AUDIO_CODEC_ADC_AGC_NG_EN      	=  BIT(7),
+};
+
+#define	ind_reg_audio_agc_2					0x02
+enum
+{
+	FLD_AUDIO_CODEC_ADC_AGC_DCY    	=  BIT_RNG(0,3),
+	FLD_AUDIO_CODEC_ADC_AGC_ATK    	=  BIT_RNG(4,7),
+};
+
+#define	ind_reg_audio_agc_3					0x03
+enum
+{
+	FLD_AUDIO_CODEC_ADC_AGC_MAX    	=  BIT_RNG(0,4),
+};
+
+#define	ind_reg_audio_agc_4					0x04
+enum
+{
+	FLD_AUDIO_CODEC_ADC_AGC_MIN    	=  BIT_RNG(0,4),
+};
+
+#define	ind_reg_audio_agc_5					0x05
+enum
+{
+	FLD_AUDIO_CODEC_ADC_AGC_EN      	=  BIT(1),
+};
 
 #endif

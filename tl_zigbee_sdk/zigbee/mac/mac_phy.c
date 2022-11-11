@@ -1,53 +1,36 @@
 /********************************************************************************************************
- * @file	mac_phy.c
+ * @file    mac_phy.c
  *
- * @brief	This is the source file for mac_phy
+ * @brief   This is the source file for mac_phy
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 /**********************************************************************
  * INCLUDES
  */
 #include "../common/includes/zb_common.h"
 #include "compiler.h"
+
+
+#define RF_SRX_MODE		0
 
 /**********************************************************************
  * LOCAL CONSTANTS
@@ -89,29 +72,97 @@ volatile u8 rf_busyFlag = 0;
 volatile s8 soft_rssi;
 volatile s32 sum_rssi, cnt_rssi = 1;
 
-u8 fPaEn;
-u32 rf_pa_txen_pin;
-u32 rf_pa_rxen_pin;
+u8 fPaEn = 0;
+u32 rf_pa_txen_pin = 0;
+u32 rf_pa_rxen_pin = 0;
+
+u8 fPtaEn = 0;
+u32 rf_pta_priority_pin = 0;
+u32 rf_pta_active_pin = 0;
+
+static bool isWLANActive(void);
 
 /**********************************************************************
  * LOCAL FUNCTIONS
  */
-#define ZB_SWTICH_TO_TXMODE()    do{ \
-									if(fPaEn) {	\
-										drv_gpio_write(rf_pa_txen_pin, 1); 		\
-										drv_gpio_write(rf_pa_rxen_pin, 0); 		\
-									}										\
-									ZB_RADIO_TRX_SWITCH(RF_MODE_TX, LOGICCHANNEL_TO_PHYSICAL(rf_getChannel()));	\
+#if RF_SRX_MODE
+//switch single RX to manual TX
+#define ZB_SWITCH_TO_TXMODE()    do{ \
+									if(rfMode != RF_STATE_TX || ZB_RADIO_TRX_STA_GET() != RF_MODE_TX){	\
+										rfMode = RF_STATE_TX;	\
+										if(fPaEn){	\
+											drv_gpio_write(rf_pa_txen_pin, 1); 		\
+											drv_gpio_write(rf_pa_rxen_pin, 0); 		\
+										}											\
+										if(fPtaEn){	\
+											drv_gpio_write(rf_pta_priority_pin, 1);	\
+										}											\
+										ZB_RADIO_TRX_OFF_AUTO_MODE();	\
+										ZB_RADIO_TRX_SWITCH(RF_MODE_TX, LOGICCHANNEL_TO_PHYSICAL(rf_getChannel()));	\
+									}	\
 								}while(0)
 
-#define ZB_SWTICH_TO_RXMODE()    do{ \
-									if(fPaEn) {	\
-										drv_gpio_write(rf_pa_txen_pin, 0); 		\
-										drv_gpio_write(rf_pa_rxen_pin, 1); 		\
-									}										\
-									ZB_RADIO_TRX_SWITCH(RF_MODE_RX, LOGICCHANNEL_TO_PHYSICAL(rf_getChannel()));	\
+//switch manual TX to single RX
+#define ZB_SWITCH_TO_RXMODE()	do{	\
+									if(rfMode != RF_STATE_RX || ZB_RADIO_TRX_STA_GET() != RF_MODE_AUTO){	\
+										rfMode = RF_STATE_RX;	\
+										if(fPaEn){	\
+											drv_gpio_write(rf_pa_txen_pin, 0); 		\
+											drv_gpio_write(rf_pa_rxen_pin, 1); 		\
+										}											\
+										if(fPtaEn){	\
+											drv_gpio_write(rf_pta_priority_pin, 0);	\
+										}											\
+										ZB_RADIO_TRX_SWITCH(RF_MODE_AUTO, LOGICCHANNEL_TO_PHYSICAL(rf_getChannel())); \
+									}	\
+									ZB_RADIO_SRX_START(clock_time());	\
+								}while(0)
+#else
+//switch manual RX to manual TX
+#define ZB_SWITCH_TO_TXMODE()    do{ \
+									if(rfMode != RF_STATE_TX || ZB_RADIO_TRX_STA_GET() != RF_MODE_TX){	\
+										rfMode = RF_STATE_TX;	\
+										if(fPaEn){	\
+											drv_gpio_write(rf_pa_txen_pin, 1); 		\
+											drv_gpio_write(rf_pa_rxen_pin, 0); 		\
+										}											\
+										if(fPtaEn){	\
+											drv_gpio_write(rf_pta_priority_pin, 1);	\
+										}											\
+										ZB_RADIO_TRX_SWITCH(RF_MODE_TX, LOGICCHANNEL_TO_PHYSICAL(rf_getChannel()));	\
+									}	\
 								}while(0)
 
+//switch manual TX to manual RX
+#define ZB_SWITCH_TO_RXMODE()    do{ \
+									if(rfMode != RF_STATE_RX || ZB_RADIO_TRX_STA_GET() != RF_MODE_RX){	\
+										rfMode = RF_STATE_RX;	\
+										if(fPaEn){	\
+											drv_gpio_write(rf_pa_txen_pin, 0); 		\
+											drv_gpio_write(rf_pa_rxen_pin, 1); 		\
+										}											\
+										if(fPtaEn){	\
+											drv_gpio_write(rf_pta_priority_pin, 0);	\
+										}											\
+										ZB_RADIO_TRX_SWITCH(RF_MODE_RX, LOGICCHANNEL_TO_PHYSICAL(rf_getChannel()));	\
+									}	\
+								}while(0)
+#endif
+
+#define ZB_SWITCH_TO_OFFMODE()	do{	\
+									if(rfMode != RF_STATE_OFF || ZB_RADIO_TRX_STA_GET() != RF_MODE_OFF){	\
+										rfMode = RF_STATE_OFF;	\
+										rf_paShutDown();		\
+										if(fPtaEn){	\
+											drv_gpio_write(rf_pta_priority_pin, 0);	\
+										}											\
+										ZB_RADIO_TRX_SWITCH(RF_MODE_OFF, LOGICCHANNEL_TO_PHYSICAL(rf_getChannel())); \
+									}	\
+								}while(0)
+
+_attribute_ram_code_ u32 mac_currentTickGet(void){
+	 return clock_time();
+}
 
 /*********************************************************************
  * @fn      rf_reset
@@ -237,17 +288,13 @@ _attribute_ram_code_ void rf_setTrxState(u8 state)
     		ZB_RADIO_MODE_MAX_GAIN();
     	}
 
-    	ZB_SWTICH_TO_RXMODE();
-        rfMode = RF_STATE_RX;
+    	ZB_SWITCH_TO_RXMODE();
     }else if(RF_STATE_TX == state){
-    	ZB_SWTICH_TO_TXMODE();
+    	ZB_SWITCH_TO_TXMODE();
         WaitUs(ZB_TX_WAIT_US);
-        rfMode = RF_STATE_TX;
     }else{
         /* Close RF */
-    	rf_paShutDown();
-    	ZB_RADIO_TRX_SWITCH(RF_MODE_OFF, LOGICCHANNEL_TO_PHYSICAL(rf_getChannel()));
-        rfMode = RF_STATE_OFF;
+    	ZB_SWITCH_TO_OFFMODE();
     }
 #endif  /* WIN32 */
 }
@@ -267,7 +314,26 @@ void rf_setChannel(u8 chn)
 		return;
 	}
 	g_zbMacPib.phyChannelCur = chn;
-	ZB_RADIO_TRX_SWITCH(ZB_RADIO_TRX_STA_GET(), LOGICCHANNEL_TO_PHYSICAL(chn));
+
+	u32 r = drv_disable_irq();
+
+	u8 phySta = ZB_RADIO_TRX_STA_GET();
+	ZB_RADIO_TRX_SWITCH(phySta, LOGICCHANNEL_TO_PHYSICAL(chn));
+	if(phySta == RF_MODE_RX || phySta == RF_MODE_AUTO) {
+		rfMode = RF_STATE_RX;
+	}else if(phySta == RF_MODE_TX){
+		rfMode = RF_STATE_TX;
+	}else if(phySta == RF_MODE_OFF){
+		rfMode = RF_STATE_OFF;
+	}
+
+#if RF_SRX_MODE
+	if(phySta == RF_MODE_AUTO && rfMode == RF_STATE_RX){
+		ZB_RADIO_SRX_START(clock_time());
+	}
+#endif
+
+	drv_restore_irq(r);
 }
 
 /*********************************************************************
@@ -324,6 +390,22 @@ u8 rf_getLqi(s8 rssi)
 }
 
 /*********************************************************************
+ * @fn      rf_lqi2cost
+ *
+ * @brief   Get calculated cost value
+ *
+ * @param   lqi
+ *
+ * @return  cost
+ */
+u8 rf_lqi2cost(u8 lqi)
+{
+	u8 cost = 0;
+	ZB_LQI_TO_PATH_COST(lqi, cost);
+	return cost;
+}
+
+/*********************************************************************
  * @fn      rf_startED
  *
  * @brief   Start ED detect
@@ -357,22 +439,13 @@ u8 rf_stopED(void)
 {
 #ifndef WIN32
     u8 ed;
-    u32 temp;
 
     if(cnt_rssi == 0) cnt_rssi = 1;
     soft_rssi = sum_rssi/cnt_rssi;
 
     ev_disable_poll(EV_POLL_ED_DETECT);/*WISE_FIX_ME*/
     /* Transfer the RSSI value to ED value */
-    if(soft_rssi <= -106){
-        ed = 0;
-    }else if(soft_rssi >= -6){
-        ed = 0xff;
-    }else{
-    	temp = (soft_rssi + 106) * 255;
-        ed = temp/100;
-    }
-
+    ed = rf_getLqi(soft_rssi);
     return ed;
 
 #else
@@ -382,6 +455,10 @@ u8 rf_stopED(void)
 
 _attribute_ram_code_ u8 rf_performCCA(void)
 {
+	if(isWLANActive()){
+		return PHY_CCA_BUSY;
+	}
+
 	u32 t1 = clock_time();
 	s8 rssi_peak = -110;
 	s8 rssi_cur = -110;
@@ -394,6 +471,15 @@ _attribute_ram_code_ u8 rf_performCCA(void)
 		rssi_cur = ZB_RADIO_RSSI_GET();
 		rssiSum += rssi_cur;
 		cnt++;
+
+#if RF_SRX_MODE
+		if(ZB_RADIO_RX_DONE){
+			ZB_RADIO_RX_DONE_CLR;
+			if(ZB_RADIO_TRX_STA_GET() == RF_MODE_AUTO){
+				ZB_RADIO_SRX_START(clock_time());
+			}
+		}
+#endif
 	}
 	rssi_peak = rssiSum/cnt;
 
@@ -426,7 +512,7 @@ _attribute_ram_code_ void rf802154_tx(void)
 }
 
 
-
+#if PA_ENABLE
 /*********************************************************************
  * @fn      rf_paInit
  *
@@ -453,14 +539,54 @@ void rf_paInit(u32 TXEN_pin, u32 RXEN_pin)
 
     fPaEn = 1;
 }
+#endif
 
 _attribute_ram_code_ void rf_paShutDown(void)
 {
+#if PA_ENABLE
     if(fPaEn){
     	drv_gpio_write(rf_pa_txen_pin, 0); // PA TX_DIS
     	drv_gpio_write(rf_pa_rxen_pin, 0); // PA RX_DIS
     }
+#endif
 }
+
+
+#if PTA_ENABLE
+void rf_ptaInit(u32 ZB_priorityPin, u32 WLAN_activePin)
+{
+	rf_pta_priority_pin = ZB_priorityPin;
+	rf_pta_active_pin = WLAN_activePin;
+
+    drv_gpio_func_set(rf_pta_priority_pin);
+    drv_gpio_output_en(rf_pta_priority_pin, 1);
+    drv_gpio_input_en(rf_pta_priority_pin, 0);
+    drv_gpio_write(rf_pta_priority_pin, 0);
+
+    drv_gpio_func_set(rf_pta_active_pin);
+    drv_gpio_output_en(rf_pta_active_pin, 0);
+    drv_gpio_input_en(rf_pta_active_pin, 1);
+
+    fPtaEn = 1;
+}
+#endif
+
+_attribute_ram_code_ bool isWLANActive(void)
+{
+#if PTA_ENABLE
+	if(fPtaEn){
+		if(drv_gpio_read(rf_pta_active_pin)){
+			WaitUs(2);
+			if(drv_gpio_read(rf_pta_active_pin)){
+				return TRUE;
+			}
+		}
+	}
+#endif
+
+	return FALSE;
+}
+
 
 /*********************************************************************
  * @fn      rf_rx_irq_handler
@@ -479,23 +605,13 @@ _attribute_ram_code_ __attribute__((optimize("-Os"))) void rf_rx_irq_handler(voi
     s32 txTime = 0;
     s32 txDelayUs = 0;
 
+    if(RF_DMA_BUSY()){
+    	return;
+    }
+
     ZB_RADIO_RX_DISABLE;
 
     g_sysDiags.macRxIrqCnt++;
-
-#if 0
-    static s32 rfRxCnt = 0;
-    s8 rssi = ZB_RADION_PKT_RSSI_GET(p) - 110;
-    T_rxRssiBuf[rfRxCnt++ & 0x3f] = rssi;
-
-    T_rxRssiPass[0]++;
-    if(rssi < RSSI_PASS_THRESHOLD){
-    	ZB_RADIO_RX_BUF_CLEAR(rf_rxBuf);
-		ZB_RADIO_RX_ENABLE;
-		return;
-    }
-    T_rxRssiPass[1]++;
-#endif
 
     /*************************************************************
      * rf_busyFlag & TX_BUSY, means a packet received before during csma delay call back interrupt called,
@@ -507,6 +623,9 @@ _attribute_ram_code_ __attribute__((optimize("-Os"))) void rf_rx_irq_handler(voi
 
     	ZB_RADIO_RX_BUF_CLEAR(rf_rxBuf);
         ZB_RADIO_RX_ENABLE;
+#if RF_SRX_MODE
+        ZB_SWITCH_TO_RXMODE();
+#endif
         return;
     }
 
@@ -523,12 +642,15 @@ _attribute_ram_code_ __attribute__((optimize("-Os"))) void rf_rx_irq_handler(voi
 		/* Drop the packet and recover the DMA */
     	ZB_RADIO_RX_BUF_CLEAR(rf_rxBuf);
 		ZB_RADIO_RX_ENABLE;
+#if RF_SRX_MODE
+		ZB_SWITCH_TO_RXMODE();
+#endif
 		return;
     }
 
     /* switch to tx in advance to let the pll stable */
  	if(macPld[0] & MAC_FCF_ACK_REQ_BIT){
- 		ZB_SWTICH_TO_TXMODE();
+ 		ZB_SWITCH_TO_TXMODE();
  		txTime = clock_time();
  	}
 
@@ -536,7 +658,7 @@ _attribute_ram_code_ __attribute__((optimize("-Os"))) void rf_rx_irq_handler(voi
 	u8 *rxNextBuf = tl_getRxBuf();
 	if(!rxNextBuf){
 		if(macPld[0] & MAC_FCF_ACK_REQ_BIT){
-			ZB_SWTICH_TO_RXMODE();
+			ZB_SWITCH_TO_RXMODE();
 		}
 
     	/* diagnostics PHY to MAC queue limit */
@@ -544,6 +666,9 @@ _attribute_ram_code_ __attribute__((optimize("-Os"))) void rf_rx_irq_handler(voi
 
 		ZB_RADIO_RX_BUF_CLEAR(rf_rxBuf);
 		ZB_RADIO_RX_ENABLE;
+#if RF_SRX_MODE
+		ZB_SWITCH_TO_RXMODE();
+#endif
 		return;
 	}
 
@@ -605,11 +730,14 @@ _attribute_ram_code_ __attribute__((optimize("-Os"))) void rf_rx_irq_handler(voi
 		/* set interrupt mask bit again */
 		ZB_RADIO_IRQ_MASK_SET;
 		/* rf is set to rx mode again */
-		ZB_SWTICH_TO_RXMODE();
+		ZB_SWITCH_TO_RXMODE();
 	}
 
 	/* enable rf rx dma again */
 	ZB_RADIO_RX_ENABLE;
+#if RF_SRX_MODE
+	ZB_SWITCH_TO_RXMODE();
+#endif
 
 	/* zb_mac_receive_data handler */
 	zb_macDataRecvHander(p, macPld, len, fAck, ZB_RADIO_TIMESTAMP_GET(p), ZB_RADION_PKT_RSSI_GET(p) - 110);
@@ -631,8 +759,7 @@ _attribute_ram_code_ __attribute__((optimize("-Os"))) void rf_tx_irq_handler(voi
 
     g_sysDiags.macTxIrqCnt++;
 
-    rfMode = RF_STATE_RX;
-    ZB_SWTICH_TO_RXMODE();
+    ZB_SWITCH_TO_RXMODE();
 
     zb_macDataSendHander();
 }

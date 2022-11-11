@@ -1,52 +1,32 @@
 /********************************************************************************************************
- * @file	zbhciCmdProcess.c
+ * @file    zbhciCmdProcess.c
  *
- * @brief	This is the source file for zbhciCmdProcess
+ * @brief   This is the source file for zbhciCmdProcess
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #include "zcl_include.h"
 #include "ota.h"
 #include "zbhci.h"
-#include "zb_common.h"
+
 
 #if ZBHCI_EN
 /**********************************************************************
@@ -75,6 +55,9 @@ zbhci_afTestReq_t g_afTestReq;
 ev_timer_event_t  *g_nodeTestTimer = NULL;
 #endif
 
+hci_ota_info_t ota_info = {0};
+ev_timer_event_t *g_hciOtaTimer = NULL;
+
 /**********************************************************************
  * GLOBAL VARIABLES
  */
@@ -92,7 +75,6 @@ extern void zbhci_clusterSceneHandle(void *arg);
 extern void zbhci_clusterOTAHandle(void *arg);
 extern void zbhci_clusterBasicHandle(void *arg);
 extern void zbhci_clusterCommonCmdHandle(void *arg);
-extern void zbhci_afCmdHandle(void *arg);
 
 
 /**********************************************************************
@@ -120,7 +102,15 @@ static void zbhciNwkAddrRspMsgPush(void* arg){
 		rsp->num_assoc_dev = 0;
 	}
 	zbhciResolveAddrRspMsg(rsp);
-	zbhciTx(ZBHCI_CMD_DISCOVERY_NWK_ADDR_RSP, p->length, (u8 *)rsp);
+
+	u8* ptr = ev_buf_allocate(p->length + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8 *)rsp, p->length);
+	zbhciTx(ZBHCI_CMD_DISCOVERY_NWK_ADDR_RSP, p->length + 2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciIeeeAddrRspMsgPush(void* arg){
@@ -131,21 +121,47 @@ static void zbhciIeeeAddrRspMsgPush(void* arg){
 		rsp->num_assoc_dev = 0;
 	}
 	zbhciResolveAddrRspMsg(rsp);
-	zbhciTx(ZBHCI_CMD_DISCOVERY_IEEE_ADDR_RSP, p->length, (u8 *)rsp);
+
+	u8* ptr = ev_buf_allocate(p->length + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8 *)rsp, p->length);
+	zbhciTx(ZBHCI_CMD_DISCOVERY_IEEE_ADDR_RSP, p->length+2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciMatchDescRspPush(void* arg){
 	zdo_zdpDataInd_t *p = (zdo_zdpDataInd_t *)arg;
 	zdo_match_descriptor_resp_t *rsp = (zdo_match_descriptor_resp_t *)p->zpdu;
 	ZB_LEBESWAP(((u8 *)&rsp->nwk_addr_interest), 2);
-	zbhciTx(ZBHCI_CMD_DISCOVERY_MATCH_DESC_RSP, p->length, (u8 *)rsp);
+
+	u8* ptr = ev_buf_allocate(p->length + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8 *)rsp, p->length);
+
+	zbhciTx(ZBHCI_CMD_DISCOVERY_MATCH_DESC_RSP, p->length+2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciActiveEpRspMsgPush(void* arg){
 	zdo_zdpDataInd_t *p = (zdo_zdpDataInd_t *)arg;
 	zdo_active_ep_resp_t *rsp = (zdo_active_ep_resp_t *)p->zpdu;
 	ZB_LEBESWAPU16(rsp->nwk_addr_interest);
-	zbhciTx(ZBHCI_CMD_DISCOVERY_ACTIVE_EP_RSP, p->length, (u8 *)rsp);
+
+	u8* ptr = ev_buf_allocate(p->length + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8 *)rsp, p->length);
+
+	zbhciTx(ZBHCI_CMD_DISCOVERY_ACTIVE_EP_RSP, p->length+2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciNodeDescRspMsgPush(void* arg){
@@ -160,7 +176,15 @@ static void zbhciNodeDescRspMsgPush(void* arg){
 	ZB_LEBESWAP(((u8 *)&(rsp->node_descriptor.max_in_tr_size)), 2);
 	ZB_LEBESWAP(((u8 *)&(rsp->node_descriptor.max_out_tr_size)), 2);
 
-	zbhciTx(ZBHCI_CMD_DISCOVERY_NODE_DESC_RSP, p->length, (u8 *)rsp);
+	u8* ptr = ev_buf_allocate(p->length + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8 *)rsp, p->length);
+
+	zbhciTx(ZBHCI_CMD_DISCOVERY_NODE_DESC_RSP, p->length+2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciSimpleDescRspMsgPush(void* arg){
@@ -185,27 +209,52 @@ static void zbhciSimpleDescRspMsgPush(void* arg){
 			listInfo += 2;
 		}
 	}
+	u8* ptr = ev_buf_allocate(p->length + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8 *)rsp, p->length);
 
-	zbhciTx(ZBHCI_CMD_DISCOVERY_SIMPLE_DESC_RSP, p->length, (u8 *)rsp);
+	zbhciTx(ZBHCI_CMD_DISCOVERY_SIMPLE_DESC_RSP, p->length+2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciBindRspPush(void* arg){
 	zdo_zdpDataInd_t *p = (zdo_zdpDataInd_t *)arg;
 	zdo_bind_resp_t *rsp = (zdo_bind_resp_t*)p->zpdu;
-	zbhciTx(ZBHCI_CMD_BINDING_RSP, sizeof(zdo_bind_resp_t), (u8 *)rsp);
+
+	u8* ptr = ev_buf_allocate(sizeof(zdo_bind_resp_t) + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8 *)rsp, sizeof(zdo_bind_resp_t));
+
+	zbhciTx(ZBHCI_CMD_BINDING_RSP, sizeof(zdo_bind_resp_t) + 2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciUnbindRspPush(void* arg){
 	zdo_zdpDataInd_t *p = (zdo_zdpDataInd_t *)arg;
 	zdo_unbind_resp_t *rsp = (zdo_unbind_resp_t*)p->zpdu;
-	zbhciTx(ZBHCI_CMD_UNBINDING_RSP, sizeof(zdo_bind_resp_t), (u8 *)rsp);
+
+	u8* ptr = ev_buf_allocate(sizeof(zdo_bind_resp_t) + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8 *)rsp, sizeof(zdo_unbind_resp_t));
+
+	zbhciTx(ZBHCI_CMD_UNBINDING_RSP, sizeof(zdo_unbind_resp_t) + 2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciMgmtLqiRspMsgPush(void* arg){
 	zdo_zdpDataInd_t *p = (zdo_zdpDataInd_t *)arg;
 	zdo_mgmt_lqi_resp_t *rsp = (zdo_mgmt_lqi_resp_t *)p->zpdu;
-	u8 num = rsp->neighbor_tbl_lst_cnt;
-	for(s32 i = 0; i < num; i++){
+
+	for(u8 i = 0; i < rsp->neighbor_tbl_lst_cnt; i++){
 		u8 *addr = rsp->neighbor_tbl_lst[i].ext_addr;
 		ZB_LEBESWAP(addr, 8);
 
@@ -215,43 +264,102 @@ static void zbhciMgmtLqiRspMsgPush(void* arg){
 		addr = (u8 *)(&rsp->neighbor_tbl_lst[i].network_addr);
 		ZB_LEBESWAP(addr, 2);
 	}
-	zbhciTx(ZBHCI_CMD_MGMT_LQI_RSP, p->length, (u8 *)rsp);
+
+	u8* ptr = ev_buf_allocate(p->length + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8*)rsp, p->length);
+
+	zbhciTx(ZBHCI_CMD_MGMT_LQI_RSP, p->length + 2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciMgmtBindRspMsgPush(void* arg){
 	zdo_zdpDataInd_t *p = (zdo_zdpDataInd_t *)arg;
 	zdo_mgmt_bind_resp_t *rsp = (zdo_mgmt_bind_resp_t *)p->zpdu;
 	u8 num = rsp->bind_tbl_lst_cnt;
+	u8 list_ptr = 5;
 
-	for(s32 n = 0; n < num; n++){
-		ZB_LEBESWAP((rsp->bind_tbl_lst[n].src_addr), 8);
-		u8 cidH = rsp->bind_tbl_lst[n].cid16_h;
-		u8 cidL = rsp->bind_tbl_lst[n].cid16_l;
-		rsp->bind_tbl_lst[n].cid16_l = cidH;
-		rsp->bind_tbl_lst[n].cid16_h = cidL;
+	for(u8 n = 0; n < num; n++){
+		zdo_bindTabListRec_t *rsp_list = (zdo_bindTabListRec_t *)(p->zpdu + list_ptr);
 
-		if(rsp->bind_tbl_lst[n].dst_addr_mode == 0x01){
-			ZB_LEBESWAP(((u8 *)&rsp->bind_tbl_lst[n].dst_group_addr), 2);
+		ZB_LEBESWAP((rsp_list->src_addr), 8);
+		u8 cidH = rsp_list->cid16_h;
+		u8 cidL = rsp_list->cid16_l;
+		rsp_list->cid16_l = cidH;
+		rsp_list->cid16_h = cidL;
+		list_ptr += 12;
+		if(rsp_list->dst_addr_mode == 0x01){
+			ZB_LEBESWAP(((u8 *)&rsp_list->dst_group_addr), 2);
+			list_ptr += 2;
 		}else{
-			ZB_LEBESWAP((rsp->bind_tbl_lst[n].dst_ext_addr), 8);
+			ZB_LEBESWAP((rsp_list->dst_ext_addr), 8);
+			list_ptr += 9;
 		}
 	}
-	zbhciTx(ZBHCI_CMD_MGMT_BIND_RSP, p->length, (u8 *)rsp);
+
+	u8* ptr = ev_buf_allocate(p->length + 2);	//src_addr
+	u8 i = 0;
+	COPY_U16TOBUFFER_BE(ptr, p->src_addr);
+	i += 2;
+	memcpy(&ptr[i], (u8*)rsp, p->length);
+
+	zbhciTx(ZBHCI_CMD_MGMT_BIND_RSP, p->length + 2, ptr);
+
+	ev_buf_free(ptr);
 }
 
 static void zbhciMgmtLeaveRspMsgPush(void *arg){
 	zdo_zdpDataInd_t *p = (zdo_zdpDataInd_t *)arg;
 	zdo_mgmt_leave_resp_t *rsp = (zdo_mgmt_leave_resp_t *)p->zpdu;
-	u16 leaveNodeCnt = 0;
-	zbhci_nodeLeaveInd_t ind;
-	if(g_hciCmd.apsCnt == rsp->seq_num && rsp->status == 0){
+	if(g_hciCmd.apsCnt == rsp->seq_num){
 		if(!g_hciCmd.rejoin){
 			zdo_nlmeForgetDev(g_hciCmd.macAddr, g_hciCmd.rejoin);
 		}
-		ind.totalCnt = leaveNodeCnt++;
-		memcpy(ind.macAddr, g_hciCmd.macAddr, 8);
-		zbhciTx(ZBHCI_CMD_MGMT_LEAVE_RSP, sizeof(zbhci_nodeLeaveInd_t), (u8 *)&ind);
+
+		u8 array[16] = {0};
+		u8 *pBuf = array;
+
+		*pBuf++ = HI_UINT16(p->src_addr);
+		*pBuf++ = LO_UINT16(p->src_addr);
+		*pBuf++ = rsp->seq_num;
+		*pBuf++ = rsp->status;
+		memcpy(pBuf, g_hciCmd.macAddr, 8);
+		ZB_LEBESWAP(pBuf, 8);
+		pBuf += 8;
+		*pBuf++ = g_hciCmd.rejoin;
+
+		zbhciTx(ZBHCI_CMD_MGMT_LEAVE_RSP, pBuf - array, array);
 	}
+}
+
+static void zbhciMgmtUpdateNotifyPush(void *arg){
+	zdo_zdpDataInd_t *p = (zdo_zdpDataInd_t *)arg;
+	zdo_mgmt_nwk_update_noti_t *rsp = (zdo_mgmt_nwk_update_noti_t *)p->zpdu;
+
+	u8 array[32] = {0};
+	u8* pBuf = array;
+
+	COPY_U16TOBUFFER_BE(pBuf, p->src_addr);
+	pBuf += 2;
+	*pBuf++ = rsp->seq_num;
+	*pBuf++ = rsp->status;
+	if(rsp->status == SUCCESS){
+		COPY_U32TOBUFFER_BE(pBuf, rsp->scan_result.scanned_channels);
+		pBuf += 4;
+		COPY_U16TOBUFFER_BE(pBuf, rsp->scan_result.total_transmissions);
+		pBuf += 2;
+		COPY_U16TOBUFFER_BE(pBuf, rsp->scan_result.transmissions_fail);
+		pBuf += 2;
+		*pBuf++ = rsp->scan_result.size;
+		if(rsp->scan_result.size <= 16){
+			memcpy(pBuf, rsp->scan_result.energyValues, rsp->scan_result.size);
+			pBuf += rsp->scan_result.size;
+		}
+	}
+	zbhciTx(ZBHCI_CMD_MGMT_NWK_UPDATE_NOTIFY, pBuf - array, array);
 }
 
 s32 rxtx_performance_result_start(void *arg){
@@ -324,37 +432,59 @@ void zbhciAfDataCnfPush(void *arg){
 
 
 void zbhciAppDataSendConfirmPush(void *arg){
-#if ZB_COORDINATOR_ROLE
 	apsdeDataConf_t *pApsDataCnf = (apsdeDataConf_t *)arg;
-#endif
 
-	zbhci_app_data_confirm_t *conf = (zbhci_app_data_confirm_t *)ev_buf_allocate(sizeof(zbhci_app_data_confirm_t));
-	if(conf){
 #if ZB_COORDINATOR_ROLE
-		if(g_nodeTestTimer){
-			g_afTestReq.sendTotalCnt++;
-			if(pApsDataCnf->status == SUCCESS){
-				g_afTestReq.sendSuccessCnt++;
-			}
-			if(g_afTestReq.sendTotalCnt >= 100){
-				txrx_performce_test_rsp_t rsp;
-				COPY_BUFFERTOU16_BE(rsp.dstAddr, (u8 *)&g_afTestReq.dstAddr);
-				COPY_BUFFERTOU16_BE(rsp.sendCnt, (u8 *)&g_afTestReq.sendTotalCnt); //sendSuccessCnt);
-				COPY_BUFFERTOU16_BE(rsp.ackCnt, (u8 *)&g_afTestReq.sendSuccessCnt);
-
-				zbhciTx(ZBHCI_CMD_TXRX_PERFORMANCE_TEST_RSP, sizeof(txrx_performce_test_rsp_t), (u8 *)&rsp);
-				memset((u8 *)&g_afTestReq, 0, sizeof(zbhci_afTestReq_t));
-			}
-		}else{
-			conf->ep = pApsDataCnf->srcEndpoint;
-			conf->status = pApsDataCnf->status;
-			conf->apsCnt = pApsDataCnf->apsCnt;
-
-			zbhciTx(ZBHCI_CMD_DATA_CONFIRM, sizeof(zbhci_app_data_confirm_t), (u8 *)conf);
+#if 0
+	if(g_nodeTestTimer){
+		g_afTestReq.sendTotalCnt++;
+		if(pApsDataCnf->status == SUCCESS){
+			g_afTestReq.sendSuccessCnt++;
 		}
-#endif
-		ev_buf_free((u8 *)conf);
+		if(g_afTestReq.sendTotalCnt >= 100){
+			txrx_performce_test_rsp_t rsp;
+			COPY_BUFFERTOU16_BE(rsp.dstAddr, (u8 *)&g_afTestReq.dstAddr);
+			COPY_BUFFERTOU16_BE(rsp.sendCnt, (u8 *)&g_afTestReq.sendTotalCnt); //sendSuccessCnt);
+			COPY_BUFFERTOU16_BE(rsp.ackCnt, (u8 *)&g_afTestReq.sendSuccessCnt);
+
+			zbhciTx(ZBHCI_CMD_TXRX_PERFORMANCE_TEST_RSP, sizeof(txrx_performce_test_rsp_t), (u8 *)&rsp);
+			memset((u8 *)&g_afTestReq, 0, sizeof(zbhci_afTestReq_t));
+		}
 	}
+#else
+	u8* conf = ev_buf_allocate(sizeof(zbhci_app_data_confirm_t));	//src_addr
+	if(conf){
+		memset(conf, 0, sizeof(zbhci_app_data_confirm_t));
+		u8* pBuf = conf;
+		*pBuf++ = pApsDataCnf->dstAddrMode;
+		if(pApsDataCnf->dstAddrMode == APS_DSTADDR_EP_NOTPRESETNT){
+			*pBuf++ = pApsDataCnf->srcEndpoint;
+		}else if(pApsDataCnf->dstAddrMode == APS_SHORT_GROUPADDR_NOEP){
+			COPY_U16TOBUFFER_BE(pBuf, pApsDataCnf->dstAddr.addr_short);
+			pBuf += 2;
+			*pBuf++ = pApsDataCnf->srcEndpoint;
+		}else if(pApsDataCnf->dstAddrMode == APS_SHORT_DSTADDR_WITHEP){
+			COPY_U16TOBUFFER_BE(pBuf, pApsDataCnf->dstAddr.addr_short);
+			pBuf += 2;
+			*pBuf++ = pApsDataCnf->srcEndpoint;
+			*pBuf++ = pApsDataCnf->dstEndpoint;
+		}else if(pApsDataCnf->dstAddrMode == APS_LONG_DSTADDR_WITHEP){
+			ZB_IEEE_ADDR_REVERT(pBuf, pApsDataCnf->dstAddr.addr_long);
+			pBuf += 8;
+			*pBuf++ = pApsDataCnf->srcEndpoint;
+			*pBuf++ = pApsDataCnf->dstEndpoint;
+		}
+		COPY_U16TOBUFFER_BE(pBuf, pApsDataCnf->clusterId);
+		pBuf += 2;
+		*pBuf++ = pApsDataCnf->status;
+		*pBuf++ = pApsDataCnf->apsCnt;
+
+		zbhciTx(ZBHCI_CMD_DATA_CONFIRM, (u8)(pBuf - conf), conf);
+
+		ev_buf_free(conf);
+	}
+#endif
+#endif
 }
 
 bool zbhciMacAddrGetPush(addrExt_t devExtAddr){
@@ -367,6 +497,7 @@ bool zbhciMacAddrGetPush(addrExt_t devExtAddr){
 
 void zbhciAppNodeLeaveIndPush(void *arg){
 	zbhci_nodeLeaveInd_t *ind = (zbhci_nodeLeaveInd_t *)arg;
+	ZB_LEBESWAPU16(ind->totalCnt);
 	ZB_LEBESWAP((ind->macAddr), 8);
 	zbhciTx(ZBHCI_CMD_NODE_LEAVE_IND, sizeof(zbhci_nodeLeaveInd_t), (u8 *)ind);
 }
@@ -452,37 +583,6 @@ static void zbhci_bdbCmdHandler(void *arg){
 	ev_buf_free(arg);
 }
 
-static void zbhci_appCmdHandler(void *arg){
-	zbhci_cmdHandler_t *cmdInfo = arg;
-	u16 cmdID = cmdInfo->cmdId;
-	u8 array[64];
-	u8 *pBuf = array;
-	memset(array, 0, 64);
-
-	if(cmdID == ZBHCI_CMD_NETWORK_STATE_REQ){
-		printf("ZBHCI_CMD_NETWORK_STATE_REQ\n");
-		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
-		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
-
-		memcpy(pBuf, g_zbInfo.nwkNib.ieeeAddr, 8);
-		ZB_LEBESWAP(pBuf, 8);
-		pBuf += 8;
-
-		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
-		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
-
-		memcpy(pBuf, g_zbInfo.nwkNib.extPANId, 8);
-		ZB_LEBESWAP(pBuf, 8);
-		pBuf += 8;
-
-		*pBuf++ = g_zbInfo.macPib.phyChannelCur;
-
-		zbhciTx(ZBHCI_CMD_NETWORK_STATE_RSP, pBuf - array, array);
-	}
-
-	ev_buf_free(arg);
-}
-
 
 static void zbhci_discoveryCmdHandler(void *arg){
 	zbhci_cmdHandler_t *cmdInfo = arg;
@@ -531,30 +631,6 @@ static void zbhci_discoveryCmdHandler(void *arg){
 		COPY_BUFFERTOU16_BE(targetAddr, p);
 		COPY_BUFFERTOU16_BE(req.nwk_addr_interest, p+2);
 		zb_zdoActiveEpReq(targetAddr, &req, &sn, zbhciActiveEpRspMsgPush);
-	}else if(cmdID == ZBHCI_CMD_DISCOVERY_LEAVE_REQ){
-#if 0
-		nlme_leave_req_t req;
-		ZB_IEEE_ADDR_REVERT(req.deviceAddr, p);
-		req.rejoin = p[8];
-		req.removeChildren = p[9];
-		zb_nlmeLeaveReq(&req);
-#endif
-		u8 sn;
-		u16 targetAddr = 0xFFFE;
-
-		zdo_mgmt_leave_req_t req;
-		ZB_IEEE_ADDR_REVERT(req.device_addr, p);
-
-		if(zb_getNwkAddrByExtAddr(req.device_addr, &targetAddr) == SUCCESS){
-			req.lr_bitfields.rejoin = p[8];
-			req.lr_bitfields.remove_children = p[9];
-			req.lr_bitfields.reserved = 0;
-
-			memcpy(g_hciCmd.macAddr, req.device_addr, 8);
-			g_hciCmd.rejoin = req.lr_bitfields.rejoin;
-			zb_mgmtLeaveReq(targetAddr, &req, &sn, zbhciMgmtLeaveRspMsgPush);
-			g_hciCmd.apsCnt = sn;
-		}
 	}
 
 	ev_buf_free(arg);
@@ -608,7 +684,7 @@ static void zbhci_mgmtCmdHandler(void *arg){
 		COPY_BUFFERTOU32_BE(req.scan_ch, &p[4]);
 		req.scan_duration = p[8];
 		req.scan_cnt = p[9];
-		zb_mgmtNwkUpdateReq(dstAddr, &req, &sn);
+		zb_mgmtNwkUpdateReq(dstAddr, &req, &sn, zbhciMgmtUpdateNotifyPush);
 	}
 
 	ev_buf_free(arg);
@@ -655,52 +731,54 @@ static void zbhci_bindCmdHandler(void *arg){
 s32 node_toggle_unicast_test(void *arg){
 	u32 mode = (u32)arg;
 
-	static s32 startIdx = 0;
+	static u16 startIdx = 0;
 	static u32 onOff = 0;
-	itemIfno_t itemInfo;
+
 	ss_dev_pair_set_t keyPair;
-	addrExt_t extAddr;
 
-	TL_SETSTRUCTCONTENT(itemInfo,0);
-	nv_flashReadNew(0, NV_MODULE_KEYPAIR, ITEM_FIELD_IDLE, sizeof(ss_dev_pair_set_t), (u8 *)&itemInfo);
+	itemIfno_t itemInfo;
+	TL_SETSTRUCTCONTENT(itemInfo, 0);
 
-	s32 i = 0;
-	for(i = startIdx; i <= itemInfo.opIndex; i++){
-		if(NV_SUCC == nv_flashReadByIndex(NV_MODULE_KEYPAIR, NV_ITEM_SS_KEY_PAIR, itemInfo.opSect, i, sizeof(ss_dev_pair_set_t), (u8 *)&keyPair)){
-			ZB_IEEE_ADDR_COPY(extAddr, keyPair.device_address);
-			break;
-		}
-	}
-	startIdx = i+1;
-
-	if(i >= itemInfo.opIndex){
-		startIdx = 0;
-		zbhciTx(ZBHCI_CMD_NODES_TOGLE_TEST_RSP, 0, NULL);
-		onOff ^= 1;
-
-		if(mode >= 2){
-#if ZB_COORDINATOR_ROLE
-			g_nodeTestTimer = NULL;
-#endif
-			return -1;
-		}else{
-			return 0;
-		}
+	if(NV_SUCC != nv_flashReadNew(0, NV_MODULE_KEYPAIR, ITEM_FIELD_IDLE, sizeof(ss_dev_pair_set_t), (u8 *)&itemInfo)){
+		g_nodeTestTimer = NULL;
+		return -1;
 	}
 
-	u8 srcEp = 1;
 	epInfo_t dstEpInfo;
-	memset(&dstEpInfo, 0, sizeof(epInfo_t));
+	TL_SETSTRUCTCONTENT(dstEpInfo, 0);
+
 	dstEpInfo.dstAddrMode = APS_LONG_DSTADDR_WITHEP;
-	ZB_IEEE_ADDR_COPY(dstEpInfo.dstAddr.extAddr,extAddr);
 	dstEpInfo.dstEp = 1;
 	dstEpInfo.profileId = HA_PROFILE_ID;
 	dstEpInfo.txOptions |= APS_TX_OPT_ACK_TX;
 
-	if(onOff){
-		zcl_onOff_onCmd(srcEp, &dstEpInfo, 0);
-	}else{
-		zcl_onOff_offCmd(srcEp, &dstEpInfo, 0);
+	u16 i = 0;
+	for(i = startIdx; i <= itemInfo.opIndex; i++){
+		if(NV_SUCC == nv_flashReadByIndex(NV_MODULE_KEYPAIR, NV_ITEM_SS_KEY_PAIR, itemInfo.opSect, i, sizeof(ss_dev_pair_set_t), (u8 *)&keyPair)){
+			startIdx = i + 1;
+
+			ZB_IEEE_ADDR_COPY(dstEpInfo.dstAddr.extAddr, keyPair.device_address);
+
+			if(onOff){
+				zcl_onOff_onCmd(0x01, &dstEpInfo, FALSE);
+			}else{
+				zcl_onOff_offCmd(0x01, &dstEpInfo, FALSE);
+			}
+
+			break;
+		}
+	}
+
+	if(i >= itemInfo.opIndex){
+		zbhciTx(ZBHCI_CMD_NODES_TOGLE_TEST_RSP, 0, NULL);
+
+		startIdx = 0;
+		onOff ^= 1;
+
+		if(mode >= 2){
+			g_nodeTestTimer = NULL;
+			return -1;
+		}
 	}
 
 	return 0;
@@ -727,6 +805,7 @@ s32 node_toggle_broadcast_test(void *arg){
 	}else{
 		zcl_onOff_offCmd(srcEp, &dstEpInfo, 0);
 	}
+	onOff ^= 1;
 	return 0;
 }
 
@@ -780,10 +859,8 @@ s32 rxtx_performance_test(void *arg){
 s32 zbhci_nodeManageCmdHandler(void *arg){
 	zbhci_cmdHandler_t *cmdInfo = arg;
 	u16 cmdID = cmdInfo->cmdId;
-#if ZB_COORDINATOR_ROLE
 	u8 *p = cmdInfo->payload;
 	u8 len = 0;
-#endif
 
 	if(cmdID == ZBHCI_CMD_NODES_JOINED_GET_REQ){
 #if ZB_COORDINATOR_ROLE
@@ -794,19 +871,28 @@ s32 zbhci_nodeManageCmdHandler(void *arg){
 		zbhci_mgmt_nodesJoined_rsp_t *rsp = (zbhci_mgmt_nodesJoined_rsp_t*) ev_buf_allocate(sizeof(zbhci_mgmt_nodesJoined_rsp_t));
 		if(rsp){
 			u8 validcnt = 0;
-			u16 totalCnt = ss_nodeMacAddrFromdevKeyPair(startIdx, 6, &validcnt, rsp->macAddrList);
+			addrExt_t ieeeAddrList[5];
+			u16 totalCnt = ss_nodeMacAddrFromdevKeyPair(startIdx, 5, &validcnt, ieeeAddrList);
 
-			addrExt_t *pMacAddr = rsp->macAddrList;
-			for(s32 i = 0; i < validcnt; i++){
-				ZB_LEBESWAP(((u8 *)pMacAddr), 8);
+			addrExt_t *pMacAddr = ieeeAddrList;
+			zbhci_mgmt_nodesJoined_info_t* rspAddr = rsp->addrList;
+			for(u8 i = 0; i < validcnt; i++){
+				u16 shortAddr = 0;
+				u16 idx = 0;
+				ZB_IEEE_ADDR_REVERT(rspAddr->macAddr, (u8*)pMacAddr);
+				if(tl_zbShortAddrByExtAddr(&shortAddr, (u8*)pMacAddr, &idx) == TL_RETURN_INVALID){
+					shortAddr = 0xfffe;
+				}
+				COPY_BUFFERTOU16_BE(rspAddr->nwkAddr, (u8 *)&shortAddr);
 				pMacAddr++;
+				rspAddr++;
 			}
 
 			rsp->hdr.status = ZBHCI_MSG_STATUS_SUCCESS;
 			COPY_BUFFERTOU16_BE(rsp->hdr.totalCnt, (u8 *)&totalCnt);
 			COPY_BUFFERTOU16_BE(rsp->hdr.startIndex, (u8 *)&startIdx);
 			rsp->hdr.listCnt = validcnt;
-			len = OFFSETOF(zbhci_mgmt_nodesJoined_rsp_t, macAddrList) + sizeof(addrExt_t) * validcnt;
+			len = OFFSETOF(zbhci_mgmt_nodesJoined_rsp_t, addrList) + sizeof(zbhci_mgmt_nodesJoined_info_t) * validcnt;
 			bufFree = 1;
 		}else{
 			hdr.listCnt = 0;
@@ -852,11 +938,12 @@ s32 zbhci_nodeManageCmdHandler(void *arg){
 #endif
 	}else if(cmdID == ZBHCI_CMD_AF_DATA_SEND_TEST_REQ){
 #if AF_TEST_ENABLE
-		u8 len = p[6];
-		zbhci_afDataSend_req_t *pAfDataSendReq = (zbhci_afDataSend_req_t *)ev_buf_allocate(sizeof(zbhci_afDataSend_req_t) + len);
+		u16 dataLen = 0;
+		COPY_BUFFERTOU16_BE(dataLen, (u8 *)&p[6]);
+		zbhci_afDataSend_req_t *pAfDataSendReq = (zbhci_afDataSend_req_t *)ev_buf_allocate(sizeof(zbhci_afDataSend_req_t) + dataLen);
 		if(pAfDataSendReq){
 			memcpy((u8 *)pAfDataSendReq, p, sizeof(zbhci_afDataSend_req_t));
-			memcpy(pAfDataSendReq->payload, &p[7], pAfDataSendReq->dataLen);
+			memcpy(pAfDataSendReq->payload, &p[sizeof(zbhci_afDataSend_req_t)], dataLen);
 
 			u16 clusterId = 0;
 			epInfo_t dstEpInfo;
@@ -869,11 +956,53 @@ s32 zbhci_nodeManageCmdHandler(void *arg){
 			COPY_BUFFERTOU16_BE(clusterId, (u8 *)&(pAfDataSendReq->clusterId));
 
 			u8 apsCnt = 0;
-			af_dataSend(pAfDataSendReq->srcEp, &dstEpInfo, clusterId, pAfDataSendReq->dataLen, pAfDataSendReq->payload, &apsCnt);
+			af_dataSend(pAfDataSendReq->srcEp, &dstEpInfo, clusterId, dataLen, pAfDataSendReq->payload, &apsCnt);
 
 			ev_buf_free((u8 *)pAfDataSendReq);
 		}
 #endif
+	}else if(cmdID == ZBHCI_CMD_GET_LOCAL_NWK_INFO_REQ){
+		u8 temp[64] = {0};
+		u8* pBuf = temp;
+		*pBuf++ = af_nodeDevTypeGet();	//devtype
+		*pBuf++ = af_nodeMacCapabilityGet();	//capability
+		*pBuf++ = g_bdbAttrs.nodeIsOnANetwork;		//formation network?
+
+		COPY_U16TOBUFFER_BE(pBuf, NIB_PAN_ID());//panid
+		pBuf += 2;
+
+		ZB_IEEE_ADDR_REVERT(pBuf, NWK_NIB().extPANId);
+		pBuf += 8;
+
+		COPY_U16TOBUFFER_BE(pBuf, NIB_NETWORK_ADDRESS());//nwkaddr
+		pBuf += 2;
+
+		ZB_IEEE_ADDR_REVERT(pBuf, NIB_IEEE_ADDRESS());
+		pBuf += 8;
+
+		zbhciTx(ZBHCI_CMD_GET_LOCAL_NWK_INFO_RSP, (u8)(pBuf-temp), temp);
+	}else if(cmdID == ZBHCI_CMD_GET_CHILD_NODES_REQ){
+		zbhci_childNodeGetReq_t *ng = (zbhci_childNodeGetReq_t *)p;
+		nwk_childTableInfo_t *rsp = (nwk_childTableInfo_t*) ev_buf_allocate(sizeof(nwk_childTableInfo_t));
+		if(rsp){
+			tl_childNodesListGet(ng->startIdx, rsp);
+			addrExt_t tExtAddr;
+			u16 tNwkAddr;
+			for(s32 m = 0; m < rsp->info.childNodesNum; m++){
+				ZB_IEEE_ADDR_REVERT((u8 *)tExtAddr, (u8 *)(rsp->list[m].extAddr));
+				memcpy((u8 *)(rsp->list[m].extAddr), tExtAddr, 8);
+				ZB_16BIT_REVERT((u8 *)&tNwkAddr, (u8 *)&rsp->list[m].nwkAddr);
+				memcpy(&rsp->list[m].nwkAddr, &tNwkAddr, 2);
+			}
+			zbhciTx(ZBHCI_CMD_GET_CHILD_NODES_RSP, sizeof(nwk_childNodesInfo_t)+rsp->info.childNodesNum*sizeof(nwk_childNodesList_t), (u8 *)rsp);
+			ev_buf_free((u8 *)rsp);
+		}else{
+			nwk_childNodesInfo_t trsp = {0};
+			trsp.status = MSG_BUFFER_NOT_AVAIL;                  /*! status, 0: success, 1: failure */
+			zbhciTx(ZBHCI_CMD_GET_CHILD_NODES_RSP, sizeof(nwk_childNodesInfo_t), (u8 *)&trsp);
+		}
+	}else if(cmdID == ZBHCI_CMD_REMOVE_ALL_CHILD_NODES_REQ){
+		tl_allChildNodesRemove();
 	}
 
 	ev_buf_free(arg);
@@ -881,6 +1010,124 @@ s32 zbhci_nodeManageCmdHandler(void *arg){
 	return -1;
 }
 
+void hci_send_ota_start_rsponse(u8 status){
+	u8 array[16] = {0};
+	u8 *pBuf = array;
+	COPY_U32TOBUFFER_BE(pBuf, ota_info.ota_flash_addr_start);
+	pBuf += 4;
+	COPY_U32TOBUFFER_BE(pBuf, ota_info.ota_file_total_size);
+	pBuf += 4;
+	COPY_U32TOBUFFER_BE(pBuf, ota_info.ota_file_offset);
+	pBuf += 4;
+	*pBuf++ = status;
+	zbhciTx(ZBHCI_CMD_OTA_START_RESPONSE, pBuf-array, array);
+}
+void uart_send_ota_block_request(){
+	u8 array[8] = {0};
+	u8 *pBuf = array;
+	COPY_U32TOBUFFER_BE(pBuf, ota_info.ota_file_offset);
+	pBuf += 4;
+	u8 next_block_len = 0;
+	if(ota_info.ota_file_total_size - ota_info.ota_file_offset >= HCI_OTA_BLOCK_SIZE_MAX){
+		next_block_len = HCI_OTA_BLOCK_SIZE_MAX;
+	}else{
+		next_block_len = ota_info.ota_file_total_size - ota_info.ota_file_offset;
+	}
+	*pBuf++ = next_block_len;
+	zbhciTx(ZBHCI_CMD_OTA_BLOCK_REQUEST, pBuf-array, array);
+}
+void uart_send_ota_end(u8 status){
+	u8 array[12] = {0};
+	u8 *pBuf = array;
+	COPY_U32TOBUFFER_BE(pBuf, ota_info.ota_file_total_size);
+	pBuf += 4;
+	COPY_U32TOBUFFER_BE(pBuf, ota_info.ota_file_offset);
+	pBuf += 4;
+	*pBuf++ = status;
+	zbhciTx(ZBHCI_CMD_OTA_END_STATUS, (pBuf-array), array);
+	if(status != ZBHCI_OTA_SUCCESS){
+		u16 sectorNumUsed = ota_info.ota_file_offset / FLASH_SECTOR_SIZE + 1;
+		for(u16 i = 0; i < sectorNumUsed; i++){
+			flash_erase(ota_info.ota_flash_addr_start + i * FLASH_SECTOR_SIZE);
+		}
+	}else{
+		ota_loadImageInfo(NULL);
+	}
+	memset(&ota_info, 0, sizeof(hci_ota_info_t));
+}
+s32 recv_ota_block_response_cb(void *arg){
+	if(ota_info.block_send_cnt++ < HCI_OTA_BLOCK_REQUEST_RETRY_CNT_MAX){
+		uart_send_ota_block_request();
+		return HCI_OTA_BLOCK_REQUEST_RETRY_INTERVAL;
+	}else{
+		uart_send_ota_end(ZBHCI_OTA_GET_BLOCK_TIMEOUT);
+		return -1;
+	}
+}
+
+void zbhci_uartOTAHandle(void *arg){
+	zbhci_cmdHandler_t *cmdInfo = arg;
+	u16 cmdId = cmdInfo->cmdId;
+	u8 *p = cmdInfo->payload;
+	if(cmdId == ZBHCI_CMD_OTA_START_REQUEST){
+		u8 start_status = ZBHCI_OTA_SUCCESS;
+		if(ota_info.ota_process_start == 0){
+			ota_info.ota_flash_addr_start = (mcuBootAddrGet()) ? 0 : FLASH_ADDR_OF_OTA_IMAGE;
+			COPY_BUFFERTOU32_BE(ota_info.ota_file_total_size, p);
+			if(ota_info.ota_file_total_size <= FLASH_OTA_IMAGE_MAX_SIZE){
+				ota_info.ota_file_offset = 0;
+				ota_info.ota_process_start = 1;
+				u16 sectorNumUsed = ota_info.ota_file_total_size / FLASH_SECTOR_SIZE + 1;
+				for(u16 i = 0; i < sectorNumUsed; i++){
+					flash_erase(ota_info.ota_flash_addr_start + i * FLASH_SECTOR_SIZE);
+				}
+				ota_info.block_send_cnt = 0;
+				g_hciOtaTimer = TL_ZB_TIMER_SCHEDULE(recv_ota_block_response_cb, NULL, HCI_OTA_BLOCK_INTERVAL_NORMAL);
+			}else{
+				start_status = ZBHCI_OTA_FILE_OVERSIZE;
+			}
+		}else{
+			start_status = ZBHCI_OTA_IN_PROGRESS;
+		}
+		hci_send_ota_start_rsponse(start_status);
+	}else if(cmdId == ZBHCI_CMD_OTA_BLOCK_RESPONSE){
+		u32 recv_offset = 0;
+		u8* ptr = p;
+		u8 status = *ptr++;
+		if(status != ZBHCI_OTA_SUCCESS){
+			if(g_hciOtaTimer){
+				TL_ZB_TIMER_CANCEL(&g_hciOtaTimer);
+			}
+			if(status != ZBHCI_OTA_SUCCESS){
+				u16 sectorNumUsed = ota_info.ota_file_offset / FLASH_SECTOR_SIZE + 1;
+				for(u16 i = 0; i < sectorNumUsed; i++){
+					flash_erase(ota_info.ota_flash_addr_start + i * FLASH_SECTOR_SIZE);
+				}
+			}
+			memset(&ota_info, 0, sizeof(hci_ota_info_t));
+			return;
+		}
+		COPY_BUFFERTOU32_BE(recv_offset, ptr);
+		ptr += 4;
+		u8 block_len = *ptr++;
+		if(recv_offset == ota_info.ota_file_offset){
+			if(g_hciOtaTimer){
+				TL_ZB_TIMER_CANCEL(&g_hciOtaTimer);
+			}
+			flash_write(ota_info.ota_flash_addr_start + recv_offset, block_len, ptr);
+			ota_info.ota_file_offset += block_len;
+			if(ota_info.ota_file_offset < ota_info.ota_file_total_size){
+				ota_info.block_send_cnt = 0;
+				g_hciOtaTimer = TL_ZB_TIMER_SCHEDULE(recv_ota_block_response_cb, NULL, HCI_OTA_BLOCK_INTERVAL_NORMAL);
+			}else if(ota_info.ota_file_offset == ota_info.ota_file_total_size){
+				uart_send_ota_end(ZBHCI_OTA_SUCCESS);
+			}else{
+				uart_send_ota_end(ZBHCI_OTA_INCORRECT_OFFSET);
+			}
+		}
+	}
+	ev_buf_free(arg);
+}
 void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 	u8 ret[4] = {0,0,0,0};
 	u8 seqNum = 0;//pdu tx seq num
@@ -905,9 +1152,6 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 				TL_SCHEDULE_TASK(zbhci_bdbCmdHandler, cmdInfo);
 				break;
 
-			case ZBHCI_CMD_NETWORK_STATE_REQ:
-				TL_SCHEDULE_TASK(zbhci_appCmdHandler, cmdInfo);
-				break;
 
 			case ZBHCI_CMD_DISCOVERY_NWK_ADDR_REQ:
 			case ZBHCI_CMD_DISCOVERY_IEEE_ADDR_REQ:
@@ -915,7 +1159,6 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 			case ZBHCI_CMD_DISCOVERY_SIMPLE_DESC_REQ:
 			case ZBHCI_CMD_DISCOVERY_MATCH_DESC_REQ:
 			case ZBHCI_CMD_DISCOVERY_ACTIVE_EP_REQ:
-			case ZBHCI_CMD_DISCOVERY_LEAVE_REQ:
 				TL_SCHEDULE_TASK(zbhci_discoveryCmdHandler, cmdInfo);
 				break;
 
@@ -937,6 +1180,9 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 			case ZBHCI_CMD_NODES_TOGLE_TEST_REQ:
 			case ZBHCI_CMD_TXRX_PERFORMANCE_TEST_REQ:
 			case ZBHCI_CMD_AF_DATA_SEND_TEST_REQ:
+			case ZBHCI_CMD_GET_LOCAL_NWK_INFO_REQ:
+			case ZBHCI_CMD_GET_CHILD_NODES_REQ:
+			case ZBHCI_CMD_REMOVE_ALL_CHILD_NODES_REQ:
 				TL_ZB_TIMER_SCHEDULE(zbhci_nodeManageCmdHandler, cmdInfo, 100);
 				break;
 
@@ -944,9 +1190,6 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 			case ZBHCI_CMD_ZCL_ATTR_WRITE:
 			case ZBHCI_CMD_ZCL_CONFIG_REPORT:
 			case ZBHCI_CMD_ZCL_READ_REPORT_CFG:
-			case ZBHCI_CMD_ZCL_LOCAL_ATTR_READ:
-			case ZBHCI_CMD_ZCL_LOCAL_ATTR_WRITE:
-			case ZBHCI_CMD_ZCL_SEND_REPORT_CMD:
 				TL_SCHEDULE_TASK(zbhci_clusterCommonCmdHandle, cmdInfo);
 				break;
 
@@ -1006,8 +1249,9 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 				TL_SCHEDULE_TASK(zbhci_clusterOTAHandle, cmdInfo);
 				break;
 
-			case ZBHCI_CMD_AF_DATA_SEND:
-				TL_SCHEDULE_TASK(zbhci_afCmdHandle, cmdInfo);
+			case ZBHCI_CMD_OTA_START_REQUEST:
+			case ZBHCI_CMD_OTA_BLOCK_RESPONSE:
+				TL_SCHEDULE_TASK(zbhci_uartOTAHandle, cmdInfo);
 				break;
 
 			default:

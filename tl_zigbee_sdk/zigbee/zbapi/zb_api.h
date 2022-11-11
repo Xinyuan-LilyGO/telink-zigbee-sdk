@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	zb_api.h
+ * @file    zb_api.h
  *
- * @brief	This is the header file for zb_api
+ * @brief   This is the header file for zb_api
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #ifndef ZB_API_H
 #define ZB_API_H
 
@@ -191,9 +171,9 @@ u32 zb_apsChannelMaskGet(void);
  * @param       None
  *
  * @return      device type (nwk_deviceType_t)
- * 				0 - EndDevice
+ * 				0 - Coordinator
  * 				1 - Router
- * 				2 - Coordinator
+ * 				2 - EndDevice
  *
  **************************************************************************/
 device_type_t zb_getDeviceType(void);
@@ -266,20 +246,20 @@ void zb_nlmeSetLinkStsPeriod(u8 periodInSec);
  *
  * @param		None
  *
- * @return		None
+ * @return		RET_ILLEGAL_REQUEST or zdo_status_t
  *
  **************************************************************************/
-void zb_endDeviceSyncReq(void);
+u8 zb_endDeviceSyncReq(void);
 
 /***********************************************************************//**
  * @brief      	Set poll rate, only for End-Device.
  *
  * @param[in]	newRate - in millisecond
  *
- * @return		None
+ * @return		RET_ILLEGAL_REQUEST or zdo_status_t
  *
  **************************************************************************/
-void zb_setPollRate(u32 newRate);
+u8 zb_setPollRate(u32 newRate);
 
 /***********************************************************************//**
  * @brief		Get poll rate, only for End-Device.
@@ -293,100 +273,125 @@ u32 zb_getPollRate(void);
 
 /***********************************************************************//**
  * @brief       Perform network formation request.
+ * 				Only for Coordinator and Router.
  *
  * @param[in]	scanChannels
  * @param[in]	scanDuration
  *
- * @return      RET_OK or not
+ * @return      RET_ILLEGAL_REQUEST or zdo_status_t
  *
  **************************************************************************/
 u8 zb_nwkFormation(u32 scanChannels, u8 scanDuration);
 
 /***********************************************************************//**
- * @brief       Perform network discovery request.
- *
- * @param[in]   pReq
- * @param[in]   state
- *
- * @return      RET_OK or not
- *
- **************************************************************************/
-u8 zb_nwkDiscReq(nlme_nwkDisc_req_t *pReq, nlme_state_t state);
-
-/***********************************************************************//**
- * @brief   	Perform router start.
+ * @brief   	Perform router start to recover network.
+ * 				Only for Coordinator and Router.
  *
  * @param   	None
  *
- * @return		None
+ * @return		RET_ILLEGAL_REQUEST or zdo_status_t
  *
  **************************************************************************/
-void zb_routerStart(void);
+u8 zb_routerStart(void);
 
 /***********************************************************************//**
- * @brief       Set rejoin mode.
+ * @brief       Perform network discovery request.
+ * 				Only for Router and End Device.
+ *
+ * @param[in]   scanChannels
+ * @param[in]   scanDuration
+ * @param[in]   cb
+ *
+ * @return      RET_ILLEGAL_REQUEST or zdo_status_t
+ *
+ **************************************************************************/
+u8 zb_nwkDiscovery(u32 scanChannels, u8 scanDuration, nwkDiscoveryUserCb_t cb);
+
+/***********************************************************************//**
+ * @brief       Cancel network discovery request.
+ * 				Only for Router and End Device.
+ *
+ * @param[in]   None
+ *
+ * @return      None
+ *
+ **************************************************************************/
+void zb_nwkDiscoveryStop(void);
+
+/***********************************************************************//**
+ * @brief       Perform associate join request.
+ * 				Only for Router and End Device.
+ *
+ * @param[in]   none
+ *
+ * @return      RET_ILLEGAL_REQUEST or zdo_status_t
+ *
+ **************************************************************************/
+u8 zb_assocJoinReq(void);
+
+/***********************************************************************//**
+ * @brief       Perform rejoin request.
+ * 				Only for Router and End Device.
+ *
+ * @param[in]   scanChannels
+ * @param[in]   scanDuration
+ *
+ * @return		RET_ILLEGAL_REQUEST or zdo_status_t
+ *
+ **************************************************************************/
+u8 zb_rejoinReq(u32 scanChannels, u8 scanDuration);
+
+/***********************************************************************//**
+ * @brief       Perform rejoin request with backoff timer.
+ * 				Only for Router and End Device.
+ * 				NOTE: Please refer to the related definition of
+ * 					  zdo_cfg_attributes for the parameter configuration
+ * 					  of backoff, in zdo_api.h
+ *
+ * @param[in]   scanChannels
+ * @param[in]   scanDuration
+ *
+ * @return		RET_ILLEGAL_REQUEST or zdo_status_t
+ *
+ **************************************************************************/
+u8 zb_rejoinReqWithBackOff(u32 scanChannels, u8 scanDuration);
+
+/***********************************************************************//**
+ * @brief       Rejoin with security or insecurity mode.
  *
  * @param[in]   mode: REJOIN_INSECURITY or REJOIN_SECURITY
  *
  * @return		None
  *
  **************************************************************************/
-void zb_rejoin_mode_set(u8 mode);
+void zb_rejoinSecModeSet(u8 mode);
 
 /***********************************************************************//**
- * @brief       Perform rejoin request.
+ * @brief       Perform direct join request.
+ * 				Only for Router and End Device.
  *
- * @param[in]   method
- * @param[in]   chm
+ * @param[in]   scanChannels
+ * @param[in]   scanDuration
  *
- * @return		status
+ * @return		RET_ILLEGAL_REQUEST or zdo_status_t
  *
  **************************************************************************/
-zdo_status_t zb_rejoinReq(rejoinNwk_method_t method, u32 chm);
+u8 zb_directJoinReq(u32 scanChannels, u8 scanDuration);
 
 /***********************************************************************//**
- * @brief   	Perform direct join request.
+ * @brief   	Accept a remote device as a child node,
+ * 				who will join the network through direct join mode.
+ * 				Only for Coordinator and Router.
  *
- * @param[in]   req
+ * @param[in]   req - the remote device information
  *
- * @return  	RET_OK or not
+ * @return  	RET_ILLEGAL_REQUEST or zdo_status_t
  *
  **************************************************************************/
-u8 zb_nwkDirectJoin(nlme_directJoin_req_t req);
+u8 zb_nwkDirectJoinAccept(nlme_directJoin_req_t *pReq);
 
 /***********************************************************************//**
- * @brief       Send a mac layer scan request.
- *
- * @param[in]   scanChannels - scan channels
- *
- * @return      RET_OK or not
- *
- **************************************************************************/
-u8 zb_mlmeScanRequest(u32 scanChannels);
-
-/***********************************************************************//**
- * @brief       Send a network layer associate join request.
- *
- * @param[in]   channel  - channel to join
- * @param[in]   extPanId - extended pan id to join
- *
- * @return      RET_OK or not
- *
- **************************************************************************/
-u8 zb_nwkAssociateJoinRequest(u8 channel, extPANId_t extPanId);
-
-/***********************************************************************//**
- * @brief       Perform a leave request.
- *
- * @param[in]   req
- *
- * @return      RET_OK or not
- *
- **************************************************************************/
-u8 zb_nlmeLeaveReq(nlme_leave_req_t *req);
-
-/***********************************************************************//**
- * @brief       Perform permit join request to local device.
+ * @brief       Set local permit join duration.
  * 				Only for Coordinator and Router.
  *
  * @param[in]   permitDuration - The time allowed for new device to join (in seconds).
@@ -394,7 +399,28 @@ u8 zb_nlmeLeaveReq(nlme_leave_req_t *req);
  * @return      Status
  *
  **************************************************************************/
-zdo_status_t zb_nlmePermitJoiningRequest(u8 permitDuration);
+u8 zb_nlmePermitJoiningRequest(u8 permitDuration);
+
+/***********************************************************************//**
+ * @brief       Perform route discovery request.
+ * 				Only for Coordinator and Router.
+ *
+ * @param[in]   pRouteDiscReq
+ *
+ * @return      RET_ILLEGAL_REQUEST or zdo_status_t
+ *
+ **************************************************************************/
+u8 zb_routeDiscReq(nlme_routeDisc_req_t *pRouteDiscReq);
+
+/***********************************************************************//**
+ * @brief       Perform leave request.
+ *
+ * @param[in]   pLeaveReq
+ *
+ * @return      zdo_status_t
+ *
+ **************************************************************************/
+u8 zb_nlmeLeaveReq(nlme_leave_req_t *pLeaveReq);
 
 /***********************************************************************//**
  * @brief       Send address request to target device for short address.
@@ -587,7 +613,7 @@ zdo_status_t zb_mgmtLeaveReq(u16 dstNwkAddr, zdo_mgmt_leave_req_t *pReq, u8 *seq
  * @return      Status
  *
  **************************************************************************/
-zdo_status_t zb_mgmtNwkUpdateReq(u16 dstNwkAddr, zdo_mgmt_nwk_update_req_t *pReq, u8 *seqNo);
+zdo_status_t zb_mgmtNwkUpdateReq(u16 dstNwkAddr, zdo_mgmt_nwk_update_req_t *pReq, u8 *seqNo, zdo_callback indCb);
 
 /***********************************************************************//**
  * @brief       Send the command of mgmt_lqi_req.
@@ -667,16 +693,6 @@ u8 zb_apsmeSwitchKeyReq(ss_apsmeSwitchKeyReq_t *pSwitchKeyReq);
 u8 zb_tcUpdateNwkKey(ss_tcUpdateNwkKey_t *pTcUpdateNwkKey);
 
 /***********************************************************************//**
- * @brief       Perform a route request.
- *
- * @param[in]   pRouteDiscReq
- *
- * @return      Status
- *
- **************************************************************************/
-aps_status_t zb_routeRequest(nlme_routeDisc_req_t *pRouteDiscReq);
-
-/***********************************************************************//**
  * @brief       Search binding table.
  *
  * @param[in]   clusterID
@@ -735,11 +751,13 @@ void zb_zdoCbRegister(zdo_appIndCb_t *cb);
  * @param[in]   shortAddr	- network address allocated by itself
  * @param[in]   extPanId	- external panID of the network
  * @param[in]   nwkKey		- the network key of the network
+ * @param[in]   tcAddr		- the trust center's address of the network, only for central network, normally it's same with extPanId
+ *                            NULL for distribute network
  *
  * @return      None
  *
  **************************************************************************/
-void zb_joinAFixedNetwork(u8 channel, u16 panId, u16 shortAddr, u8 *extPanId, u8 *nwkKey);
+void zb_joinAFixedNetwork(u8 channel, u16 panId, u16 shortAddr, u8 *extPanId, u8 *nwkKey, u8 *tcAddr);
 
 /***********************************************************************//**
  * @brief       Extend PAN ID rejoin. Only for the factory new device.

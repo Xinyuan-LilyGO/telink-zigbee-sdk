@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	aps_api.h
+ * @file    aps_api.h
  *
- * @brief	This is the header file for aps_api
+ * @brief   This is the header file for aps_api
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #ifndef APS_API_H
 #define APS_API_H
 
@@ -57,6 +37,12 @@
 #ifndef APS_GROUP_TABLE_NUM
 #define APS_GROUP_TABLE_NUM				4		//APS_GROUP_TABLE_NUM_DFT
 #endif
+
+#define	APS_BINDING_TABLE_NUM_V1        8       //old struct, mustn't change it
+
+#define APS_TX_CACHE_TABLE_NUM			16
+
+
 
 #define APS_PARENT_ANNOUNCE_BASE_TIMER	10//s
 #define APS_PARENT_ANNOUNCE_JITTER_MAX	10//s
@@ -81,6 +67,9 @@ typedef enum{
 	APS_STATUS_TABLE_FULL            = 0xae,
 	APS_STATUS_UNSECURED             = 0xaf,
 	APS_STATUS_UNSUPPORTED_ATTRIBUTE = 0xb0,
+	APS_STATUS_HANDLE_BACKING		 = 0xb1,
+	APS_STATUS_SHORT_ADDR_REQUESTING = 0xb2,
+
 	APS_STATUS_DUPLICATE_ENTRY       = 0xb8,
 
 	APS_STATUS_INTERNAL_BUF_FULL     = 0xb9
@@ -291,6 +280,7 @@ typedef struct{
 
     u8 handle;
     u8 apsCnt;
+    u16 clusterId;
 }apsdeDataConf_t;
 
 
@@ -397,9 +387,55 @@ typedef struct{
 	u8 dst_n_elements;
 	u8 bound_cnt;
 	u8 resv;
-	aps_bind_tbl_t	  table[APS_BINDING_TABLE_NUM];
-	boundTblMapList_t BoudList[APS_BINDING_TABLE_NUM * APS_BINDING_TABLE_NUM];
+	aps_bind_tbl_t	  table[APS_BINDING_TABLE_NUM_V1];
+	boundTblMapList_t BoudList[APS_BINDING_TABLE_NUM_V1 * APS_BINDING_TABLE_NUM_V1];
 }aps_binding_table_t _attribute_aligned_(4);
+
+typedef struct{
+	addrExt_t extAddr;
+	u8        dstEp;
+}aps_binding_extaddr_t;
+
+typedef struct{
+	u16 clusterId;     /*! cluster ID */
+	u8  srcEp;         /*! source endpoint */
+	u8  dstAddrMode;   /*! destination address mode */
+	union{
+		u16 groupAddr;  //group address
+		aps_binding_extaddr_t dstExtAddrInfo; //zb_asp_long_dst_addr_t
+	};
+	u8 used;
+}aps_binding_entry_t;
+
+typedef struct{
+    union{
+    	u16		  addr_short;
+		addrExt_t addr_long;
+	}dstAddr;
+
+	u8	*payload;
+
+    u8  dstAddrMode;
+    u8  dstEndpoint;
+	u8	ep;					//srcEp
+	u8	handler;      		//real data handler
+
+	u8	apsCount;     		//real data aps count
+	u8	zdpSeqnoAddrReq;  	//the aps count for nwk address req
+	u8	used:1;
+	u8	addrReqNeed:1;
+	u8	ackNeed:1;
+	u8	interPAN:1;
+	u8	state:4;
+	u8	retries;
+
+	s8	apsAckWaitTimeOut;
+	s8	apsAddrWaitTimeout;
+	u8  extFrameCtrl;
+	u8	blockNum;
+	u16 clusterId;
+	u8 resv[2];
+}aps_tx_cache_list_t;
 
 typedef struct{
 	u32			aps_channel_mask; //The mask of allowable channels for this device to use for network operations.
@@ -427,10 +463,12 @@ extern u8 APS_MAX_WINDOW_SIZE;
 extern u8 APS_FRAGMEMT_PAYLOAD_SIZE;
 extern u8 APS_BINDING_TABLE_SIZE;
 extern u8 APS_GROUP_TABLE_SIZE;
+extern u8 APS_TX_CACHE_TABLE_SIZE;
 extern u8 APS_MAX_FRAME_RETRIES;
 extern u8 APS_ACK_EXPIRY;
-extern aps_binding_table_t aps_binding_tbl;
+extern aps_binding_entry_t g_apsBindingTbl[];
 extern aps_group_tbl_ent_t aps_group_tbl[];
+extern aps_tx_cache_list_t aps_txCache_tbl[];
 extern aps_pib_attributes_t aps_ib;
 
 #define APS_IB() aps_ib
@@ -492,7 +530,8 @@ aps_status_t aps_search_dst_from_bind_tbl(aps_data_req_t *apsreq, bind_dst_list_
  * @return	the point to the binding table
  *
  **************************************************************************/
-aps_binding_table_t *aps_bindingTblGet(void);
+aps_binding_entry_t *aps_bindingTblEntryGet(void);
+u8 aps_bindingTblEntryNum(void);
 
 /***********************************************************************//**
  * @brief   get binding table number
@@ -513,6 +552,7 @@ u8 aps_bindingTblNum(void);
  *
  **************************************************************************/
 void aps_delete_bind_by_dst(u16 dst_addr_ref);
+void aps_bindingTblEntryDelByDstExtAddr(addrExt_t extAddr);
 
 /***********************************************************************//**
  * @brief   clear all binding table information
@@ -641,6 +681,9 @@ aps_group_tbl_ent_t *aps_group_search_by_addr(u16 group_addr);
  **************************************************************************/
 u8 *aps_group_ep_info_get(u16 group_addr, u8 *epNum);
 
+u8 aps_duplicate_check(u16 src_addr, u8 aps_counter);
+
+void apsCleanToStopSecondClock(void);
 
 void tl_apsDataIndRegister(apsDataIndCb_t cb);
 

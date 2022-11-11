@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	tl_zb_mac.h
+ * @file    tl_zb_mac.h
  *
- * @brief	This is the header file for tl_zb_mac
+ * @brief   This is the header file for tl_zb_mac
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #ifndef TL_ZB_MAC_H
 #define TL_ZB_MAC_H
 
@@ -295,50 +275,50 @@ typedef enum{
 	MAC_SUCCESS                 	= 0x00,/**< Operation successful */
     MAC_STA_PAN_AT_CAPACITY         = 0x01,
     MAC_STA_PAN_ACCESS_DENIED       = 0x02,
-	MAC_STA_AUTOACK_PENDING_ALL_ON  = 0xFE,
-    MAC_STA_AUTOACK_PENDING_ALL_OFF = 0xFF,
-    MAC_STA_BEACON_LOSS             = 0xE0,
-    MAC_STA_CHANNEL_ACCESS_FAILURE  = 0xE1,
+
+    MAC_STA_UNSUPPORTED             = 0x18,
+    MAC_STA_BAD_STATE               = 0x19,
+    MAC_STA_NO_RESOURCES            = 0x1A,
+    MAC_TX_ABORTED              	= 0x1D,/**< For internal use only */
+    MAC_STA_FRAME_PENDING			= 0x20,
+
     MAC_STA_COUNTER_ERROR           = 0xDB,
-    MAC_STA_DENIED                  = 0xE2,
-    MAC_STA_DISABLE_TRX_FAILURE     = 0xE3,
-    MAC_STA_FRAME_TOO_LONG          = 0xE5,
     MAC_STA_IMPROPER_KEY_TYPE       = 0xDC,
     MAC_STA_IMPROPER_SECURITY_LEVEL = 0xDD,
-    MAC_STA_INVALID_ADDRESS         = 0xF5,
+    MAC_STA_UNSUPPORTED_LEGACY      = 0xDE,
+    MAC_STA_UNSUPPORTED_SECURITY    = 0xDF,
+    MAC_STA_BEACON_LOSS             = 0xE0,
+    MAC_STA_CHANNEL_ACCESS_FAILURE  = 0xE1,
+    MAC_STA_DENIED                  = 0xE2,
+    MAC_STA_DISABLE_TRX_FAILURE     = 0xE3,
+    MAC_STA_SECURITY_ERROR          = 0xE4,
+    MAC_STA_FRAME_TOO_LONG          = 0xE5,
     MAC_STA_INVALID_GTS             = 0xE6,
     MAC_STA_INVALID_HANDLE          = 0xE7,
-    MAC_STA_INVALID_INDEX           = 0xF9,
     MAC_STA_INVALID_PARAMETER       = 0xE8,
-    MAC_STA_LIMIT_REACHED           = 0xFA,
     MAC_STA_NO_ACK                  = 0xE9,
     MAC_STA_NO_BEACON               = 0xEA,
     MAC_STA_NO_DATA                 = 0xEB,
     MAC_STA_NO_SHORT_ADDRESS        = 0xEC,
-    MAC_STA_ON_TIME_TOO_LONG        = 0xF6,
     MAC_STA_OUT_OF_CAP              = 0xED,
     MAC_STA_PAN_ID_CONFLICT         = 0xEE,
-    MAC_STA_PAST_TIME               = 0xF7,
-    MAC_STA_READ_ONLY               = 0xFB,
     MAC_STA_REALIGNMENT_GOT         = 0xEF,
-    MAC_STA_IN_SCAN_DOING		    = 0xFC,
-    MAC_STA_SECURITY_ERROR          = 0xE4,
-    MAC_STA_SUPERFRAME_OVERLAP      = 0xFD,
-    MAC_STA_TRACKING_OFF            = 0xF8,
     MAC_STA_TRANSACTION_EXPIRED     = 0xF0,
     MAC_STA_TRANSACTION_OVERFLOW    = 0xF1,
     MAC_STA_TX_ACTIVE               = 0xF2,
     MAC_STA_KEY_UNAVAILABLE         = 0xF3,
     MAC_STA_UNSUPPORTED_ATTRIBUTE   = 0xF4,
-    MAC_STA_UNSUPPORTED_LEGACY      = 0xDE,
-    MAC_STA_UNSUPPORTED_SECURITY    = 0xDF,
-    MAC_STA_UNSUPPORTED             = 0x18,
-    MAC_STA_BAD_STATE               = 0x19,
-    MAC_STA_NO_RESOURCES            = 0x1A,
-
-    MAC_STA_FRAME_PENDING			= 0x20,
-
-    MAC_TX_ABORTED              	= 0x1D,/**< For internal use only */
+    MAC_STA_INVALID_ADDRESS         = 0xF5,
+    MAC_STA_ON_TIME_TOO_LONG        = 0xF6,
+    MAC_STA_PAST_TIME               = 0xF7,
+    MAC_STA_TRACKING_OFF            = 0xF8,
+    MAC_STA_INVALID_INDEX           = 0xF9,
+    MAC_STA_LIMIT_REACHED           = 0xFA,
+    MAC_STA_READ_ONLY               = 0xFB,
+    MAC_STA_IN_SCAN_DOING		    = 0xFC,
+    MAC_STA_SUPERFRAME_OVERLAP      = 0xFD,
+	MAC_STA_AUTOACK_PENDING_ALL_ON  = 0xFE,
+    MAC_STA_AUTOACK_PENDING_ALL_OFF = 0xFF,
 }mac_sts_t;
 
 
@@ -556,6 +536,7 @@ typedef struct{
 	addr_t 	srcAddr;
 	addr_t 	dstAddr;
 	u8  	status;
+	bool	isAssoc;//TRUE is associate, FALSE is orphan
 	mac_sec_t sec;
 }zb_mlme_comm_status_ind_t;
 
@@ -620,7 +601,7 @@ typedef struct
     union{                        //!< Define a union of energy measurements list and pan descriptor list
         u8 energyDetectList[MAX_ED_SCAN_RESULTS_SUPPORTED]; //!< List of energy measurements
         mac_panDesc_t panDescList[MAX_PAN_DESC_SUPPORTED];  //!< List of PAN descriptors
-     }resultList;
+    }resultList;
 }zb_mac_mlme_scan_conf_t;
 
 /**
@@ -841,9 +822,16 @@ typedef struct mac_indirPendingList_t{
 	addr_t	dstAddr;
 	u8		expiry;
 	u8		extExpiryCnt;
-	u8		send;
+	u8      state;
+	u8		status;
 }mac_indirPendingList_t;
 
+enum{
+	MAC_PENDIND_READY  		= 0x1,
+	MAC_PENDIND_TX_READY 	= 0x2,
+	MAC_PENDIND_TXING  		= 0x3,
+	MAC_PENDIND_EXPIRY 		= 0x4,
+};
 
 /**
    Parameters for storing data in a pending queue

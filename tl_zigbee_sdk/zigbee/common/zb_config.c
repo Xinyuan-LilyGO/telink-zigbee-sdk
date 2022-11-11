@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	zb_config.c
+ * @file    zb_config.c
  *
- * @brief	This is the source file for zb_config
+ * @brief   This is the source file for zb_config
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 /**********************************************************************
  * INCLUDES
  */
@@ -98,6 +78,9 @@ u8 NWK_COST_THRESHOLD_ONEHOP = 7;
 /* the cost threshold to choose next hop from neighbor table */
 u8 NWK_NEIGHBOR_SEND_OUTGOING_THRESHOLD = 5;
 
+/* whether add src ieee address in nwk header for the data from higher level */
+bool NWK_HEADER_SRC_IEEE_INCLUDE = FALSE;
+
 /* address mapping table */
 u16 TL_ZB_NWK_ADDR_MAP_SIZE = TL_ZB_NWK_ADDR_MAP_NUM;
 tl_zb_addr_map_t g_nwkAddrMap;
@@ -134,27 +117,35 @@ nwk_routeRecordTabEntry_t g_routeRecTab[NWK_ROUTE_RECORD_TABLE_NUM];
 #if ZB_ROUTER_ROLE
 bool NWK_BRC_PASSIVE_ACK_ENABLE = TRUE;
 u8 NWK_BRC_TRANSTBL_SIZE = NWK_BRC_TRANSTBL_NUM;
+u32 NWK_BRC_JITTER = NWK_MAX_BROADCAST_JITTER;
 nwk_brcTransRecordEntry_t g_brcTransTab[NWK_BRC_TRANSTBL_NUM];
 #endif
 
 #if ZB_ED_ROLE
 bool AUTO_QUICK_DATA_POLL_ENABLE = TRUE;
+u32 AUTO_QUICK_DATA_POLL_INTERVAL = POLL_RATE_QUARTERSECONDS;//ms
+u8 AUTO_QUICK_DATA_POLL_TIMES = 3;
 #endif
 
 /* binding table */
 u8 APS_BINDING_TABLE_SIZE = APS_BINDING_TABLE_NUM;
-aps_binding_table_t aps_binding_tbl;
+aps_binding_entry_t g_apsBindingTbl[APS_BINDING_TABLE_NUM];
 
 /* group table */
 u8 APS_GROUP_TABLE_SIZE = APS_GROUP_TABLE_NUM;
 aps_group_tbl_ent_t aps_group_tbl[APS_GROUP_TABLE_NUM];
 u16 GROUP_MESSAGE_SEND_ADDRESS = NWK_BROADCAST_RX_ON_WHEN_IDLE;
 
+/* APS layer TX cache size */
+u8 APS_TX_CACHE_TABLE_SIZE = APS_TX_CACHE_TABLE_NUM;
+aps_tx_cache_list_t aps_txCache_tbl[APS_TX_CACHE_TABLE_NUM];
+
 /* the offset of the rx buffer to the zb-buffer */
 u8 RX_ZBBUF_OFFSET = TL_RXPRIMITIVEHDR;
 
 /* MAC layer TX Queue size */
 u8 MAC_TX_QUEUE_SIZE = TX_QUEUE_BN;
+tx_data_queue g_txQueue[TX_QUEUE_BN];
 
 /* WWAH long up time threshold, (24 * 60 * 60) seconds. */
 u32 LONG_UPTIME_THRESHOLD = 86400;
@@ -283,11 +274,9 @@ u32 brcTransRecordTblSizeGet(void){
 }
 #endif
 
-/*
- * @brief:		get the entry of the mapping table of the binding list
- */
-boundTblMapList_t *bindTblMapListGet(void){
-	return &aps_binding_tbl.BoudList[0];
+
+aps_binding_entry_t *bindTblEntryGet(void){
+	return &g_apsBindingTbl[0];
 }
 
 /*
@@ -297,12 +286,6 @@ u32 zbBufferSizeGet(void){
 	return (sizeof(g_mPool));
 }
 
-/*
- * @brief:		get the size of the binding table
- */
-u32 bindTblSizeGet(void){
-	return (sizeof(aps_binding_table_t));
-}
 
 /*
  * @brief:		get the size of the neighbor table

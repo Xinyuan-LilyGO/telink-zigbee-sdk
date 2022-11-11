@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	dGP_stub.h
+ * @file    dGP_stub.h
  *
- * @brief	This is the header file for dGP_stub
+ * @brief   This is the header file for dGP_stub
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #ifndef DGP_STUB_H
 #define DGP_STUB_H
 
@@ -52,8 +32,6 @@
 #define GP_TX_QUEUE_MAX_NUM					1
 #define GP_DATA_IND_SEC_REQ_TAB_NUM			4
 
-#define GP_NONCE_SEC_CTRL						0x05
-#define GP_NONCE_SEC_CTRL_OUTGOING_APP_ID_GP	0xc5
 
 //A.1.5.2.1.2
 #define GP_TX_OFFSET						20//ms
@@ -66,8 +44,9 @@
 //GP handle
 typedef enum{
 	GP_HANDLE_MIN = 0x70,
-	GP_HANDLE_MAX = 0xBE,
-	GP_HANDLE_CHANNEL_CONFIGURATION = 0xBF,
+	GP_HANDLE_MAX = 0xBD,
+	GP_HANDLE_CHANNEL_CONFIGURATION = 0xBE,
+	GP_HANDLE_TUNNELED_GPD_CMD		= 0xBF,
 	//NWK_INTERNAL_NSDU_HANDLE = 0xC0,
 }gp_handle_e;
 
@@ -121,7 +100,7 @@ typedef enum
 */
 typedef struct
 {
-	u8	*gpdAsdu;
+	u8	*gpdAsdu;	//gpdAsdu[0] is cmdId.
 	u32	srcId;
 	u32	gpdSecFrameCnt;
 	u32	mic;
@@ -139,7 +118,7 @@ typedef struct
 	u8	gpdfKeyType;//0x00 - 0x07
 	u8	endpoint;
 	u8	gpdCmdId;
-	u8	gpdAsduLen;
+	u8	gpdAsduLen;	//length of ZGP App Payload.
 	u8	frameType;
 }gp_data_ind_t;
 
@@ -227,7 +206,7 @@ typedef struct
 	u8	appId;
 	u8	endpoint;
 	u8	gpdKey[16];
-	u8	gpdfSecurityLevel;
+	u8	gpdfSecurityLevel;//0x00,0x02,0x03
 	u8	gpdfKeyType;//0x00 - 0x07
 }gp_sec_rsp_t;
 
@@ -256,18 +235,24 @@ typedef struct
 typedef struct
 {
 	gp_data_ind_t *buf;	//hold gpDataInd buffer
+	u32 frameCounter;
+	gpdId_t	gpdId;
 	u8	timeout;
 	u8	dGpStubHandle;
-	u8	used;
+	u8	appId:3;
+	u8	gpdfSecKey:1;
+	u8	gpdfSecLevel:2;
+	u8	used:1;
+	u8	reserved:1;
 }gp_data_ind_entry_t;
 
 
-typedef u8 (*gpDeviceAnnounceCheckCb_t)(u16 sinkNwkAddr, addrExt_t sinkIeeeAddr);
+typedef bool (*gpDeviceAnnounceCheckCb_t)(u16 sinkNwkAddr, addrExt_t sinkIeeeAddr);
 
 /***************************************************************************
 * @brief	Define for dStub notify GPEP
 */
-typedef void (*gpDataCnfCb_t)(gp_data_cnf_t gpDataCnf);
+typedef void (*gpDataCnfCb_t)(gp_data_cnf_t *pGpDataCnf);
 typedef void (*gpDataIndCb_t)(void *arg);
 typedef void (*gpSecReqCb_t)(void *arg);
 
@@ -276,15 +261,20 @@ typedef struct
 	gpDataCnfCb_t 	gpDataCnfCb;
 	gpDataIndCb_t 	gpDataIndCb;
 	gpSecReqCb_t	gpSecReqCb;
-}gp_epCb_t;
-
-
+}gp_stubCb_t;
 
 extern gp_data_ind_entry_t g_gpDataIndSecReqTab[];
 
 
-void gpStubCbInit(gp_epCb_t *cb);
+gp_nwkHdrFrameCtrl_t gpNwkHdrFrameCtrlBuild(u8 frameType, bool autoComm, u8 appId,
+											u8 secLevel, u8 secKey,
+											bool rxAfterTx, bool direction,
+											gp_extNwkFrameCtrl_t *pExtNwkFrameCtrl);
+
+void gpStubCbInit(gp_stubCb_t *cb);
 void gpTxQueueFree(void);
+void gpTxQueueMaintenceClear(void);
+gp_data_ind_entry_t *gpDataIndEntryFreeGet(void);
 void gpDataIndSecReqEntryClear(gp_data_ind_entry_t *pEntry);
 u8 dGpStubHandleGet(void);
 gp_data_ind_entry_t *gpDataIndGet(u8 handle);

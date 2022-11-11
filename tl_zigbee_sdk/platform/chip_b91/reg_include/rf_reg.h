@@ -9,43 +9,22 @@
  * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
 #ifndef  RF_REG_H
 #define  RF_REG_H
-#include "../sys.h"
+#include "soc.h"
 
 ///*******************************      RF      ******************************/
 #define                 APBADDR           0x140000
@@ -406,7 +385,7 @@ enum{
 };
 #endif
 
-#define	   reg_rf_rxdma_adr			 0x140880
+#define	   reg_rf_rxdma_adr			 0x80140880
 #define    reg_rf_rxdma_fifo0        REG_ADDR8(REG_BASEBAND_BASE_ADDR+0x80)
 enum{
 	FLD_RF_RXDMA_FIFO0           =	BIT_RNG(0,7),
@@ -430,7 +409,7 @@ enum{
 	FLD_RF_RXDMA_FIFO3           =	BIT_RNG(0,7),
 };
 
-#define	   reg_rf_txdma_adr			0x140884
+#define	   reg_rf_txdma_adr			0x80140884
 #define    reg_rf_txdma_fifo0        REG_ADDR8(REG_BASEBAND_BASE_ADDR+0x84)
 enum{
 	FLD_RF_TXDMA_FIFO0           =	BIT_RNG(0,7),
@@ -646,7 +625,7 @@ typedef enum{
 	FLD_RF_IRQ_WIFI_DENY         =	BIT(13),
 	FLD_RF_IRQ_SUPP_OF           =	BIT(14),
 	FLD_RF_IRQ_RXDMA_OF          =	BIT(15),
-	FLD_RF_IRQ_ALL 				 =  0X1FFF,
+	FLD_RF_IRQ_ALL 				 =  0XFFFF,
 }rf_irq_e;
 
 
@@ -742,6 +721,25 @@ enum
 	FLD_RF_BLE_MODEM_TX			  = BIT(0),
 };
 
+#define		reg_rf_modem_mode_cfg_txrx_0    REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x26)
+enum
+{
+	FLD_RF_X1_CQ_N					  = BIT(0),
+	FLD_RF_SYNC_RST_SEL				  = BIT(1),
+	FLD_RF_GF_BT					  = BIT(2),
+};
+
+#define     reg_rf_modem_rxc_mi_flex_ble_0    REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x48)
+enum
+{
+	FLD_RF_RXC_MI_FLEX_BLE_L      =  BIT_RNG(0,7),
+};
+#define     reg_rf_modem_rxc_mi_flex_ble_1    REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x49)
+enum
+{
+	FLD_RF_RXC_MI_FLEX_BLE_H     = BIT(0),
+};
+
 #define		reg_rf_modem_rx_ctrl_0		REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x4c)
 enum
 {
@@ -751,9 +749,12 @@ enum
 };
 
 #define		reg_rf_modem_sync_thre_ble		REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x4e)
-
+#define		reg_rf_modem_fdc_dbg_lat		REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x58)
+#define		reg_rf_modem_gain_lat0			REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x5c)
 #define		reg_rf_agc_rssi_lat		REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x5d)
 
+#define		ref_rf_tim_align_1			REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x79)
+#define		reg_rf_bypass_filt_1		REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x7b)
 #define 	reg_rf_tx_tl_ctrl			REG_ADDR8(REG_TL_MODEM_BASE_ADDR+0x9a)
 enum
 {
@@ -801,7 +802,7 @@ enum
 {
 	FLD_RF_DIS_CLK_DIG_O			= BIT(0),
 	FLD_RF_VANT_PULLDN				= BIT(1),
-	FLD_RF_GF_BT					= BIT(2),
+	FLD_RF_TX_IQ_MODE_EN_BT			= BIT(2),
 	FLD_RF_LDO_ANT_TRIM				= BIT_RNG(3,5),
 	FLD_RF_CBPF_TYPE				= BIT(6),
 	FLD_RF_TX_PA_PWR_L				= BIT(7),
@@ -852,6 +853,16 @@ enum
 
 };
 
+#define   reg_rf_mode_cfg_rx2_0        REG_ADDR8(REG_TL_RADIO_BASE_ADDR+0x3e)
+enum
+{
+   FLD_RF_TXC_MI_FLEX_L     = BIT_RNG(0,7),
+};
+#define   reg_rf_mode_cfg_rx2_1        REG_ADDR8(REG_TL_RADIO_BASE_ADDR+0x3f)
+enum
+{
+  FLD_RF_TXC_MI_FLEX_H   = BIT(0),
+};
 #define		reg_rf_txrx_dbg3_0		    REG_ADDR8(REG_TL_RADIO_BASE_ADDR+0x44)
 enum
 {
@@ -865,6 +876,26 @@ enum
 	FLD_RF_CHNL_FREQ_H					= BIT_RNG(0,5),
 	FLD_RF_DSN_DITHER_DISABLE			= BIT(6),
 	FLD_RF_DSM_INT_MODE				= BIT(7),
+};
+
+#define		reg_rf_lnm_pa_ow_ctrl_val	REG_ADDR8(REG_TL_RADIO_BASE_ADDR+0x178)
+enum
+{
+	FLD_RF_RX_LNA_PUP_OW			= BIT(0),
+	FLD_RF_RX_LNA_HGAIN_OW			= BIT(1),
+	FLD_RF_RX_LNA_LGAIN_OW			= BIT(2),
+	FLD_RF_RX_LNA_ATTN_OW			= BIT(3),
+	FLD_RF_RX_MIX_PUP_OW			= BIT(4),
+	FLD_RF_TX_PA_PUP_OW				= BIT(5),
+	FLD_RF_TX_PA_PWR_OW				= BIT(6),
+	FLD_RF_PA_RAMP_TSEQ_OR_TX_ON	= BIT(7),
+};
+
+#define		reg_rf_pa_ow_val			  REG_ADDR8(REG_TL_RADIO_BASE_ADDR+0x17c)
+enum
+{
+	FLD_RF_TX_PA_PUP				= BIT(0),
+	FLD_RF_TX_PA_PWR				= BIT_RNG(1,6),
 };
 
 #endif

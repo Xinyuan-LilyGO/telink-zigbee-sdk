@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	zbhci_zclHandler.c
+ * @file    zbhci_zclHandler.c
  *
- * @brief	This is the source file for zbhci_zclHandler
+ * @brief   This is the source file for zbhci_zclHandler
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #include "zcl_include.h"
 #include "ota.h"
 #include "zbhci.h"
@@ -70,7 +50,7 @@ void zbhciTxClusterCmdAddrResolve(epInfo_t *dstEpInfo, u8 *srcEp, u8 **payload){
 	zbhciTxMode_e apsTxMode = **payload;
 	(*payload)++;
 
-	if((apsTxMode<ZBHCI_ADDRMODE_BRC)&&(apsTxMode != ZBHCI_ADDRMODE_GROUP)){
+	if((apsTxMode < ZBHCI_ADDRMODE_BRC) && (apsTxMode != ZBHCI_ADDRMODE_GROUP)){
 		dstEpInfo->txOptions |= APS_TX_OPT_ACK_TX;
 	}
 	dstEpInfo->profileId = 0x0104;//HA_PROFILE_ID
@@ -113,8 +93,9 @@ void zbhci_zclIdentifyCmdHandle(void *arg){ //u16 cmdId, u8 *pCmd){
 	status_t sta = ZCL_STA_FAILURE;
 	if(cmdId == ZBHCI_CMD_ZCL_IDENTIFY){
 		u16 identifyTime;
-		u32 manuCode = 0x54555657;
+//		u32 manuCode = 0x54555657;
 		COPY_BUFFERTOU16_BE(identifyTime, pCmd);
+		u32 manuCode = 0;
 		sta = zcl_identify_identifyCmd(srcEp, &dstEpInfo, FALSE, identifyTime, manuCode);
 	}else if(cmdId == ZBHCI_CMD_ZCL_IDENTIFY_QUERY){
 		sta = zcl_identify_identifyQueryCmd(srcEp, &dstEpInfo, FALSE);
@@ -527,7 +508,7 @@ void zbhci_clusterSceneHandle(void *arg){ //u16 cmdId, u8 *pCmd){
 
 void cust_ota_start_req(epInfo_t *dstEpInfo,u8 srcEp,u8 **payload)
 {
-	u32 image_length;
+//	u32 image_length;
 	ota_hdrFields_t ota_hdr;
 	u32 ota_start_addr = 0;
 	if(mcuBootAddrGet() == 0)//boot from 0
@@ -540,7 +521,7 @@ void cust_ota_start_req(epInfo_t *dstEpInfo,u8 srcEp,u8 **payload)
 	}
 
 	flash_read(ota_start_addr,sizeof(ota_hdrFields_t),(u8*)&ota_hdr);
-	image_length = ota_hdr.totalImageSize;
+//	image_length = ota_hdr.totalImageSize;
 
 	ota_imageNotify_t in;
 	in.payloadType = **payload;
@@ -570,66 +551,6 @@ void zbhci_clusterOTAHandle(void *arg){ //u16 cmdId, u8 *pCmd){
 	ev_buf_free(arg);
 }
 
-
-void zbhci_afCmdHandle(void *arg)
-{
-    zbhci_cmdHandler_t *cmdInfo = arg;
-    u16 cmdId = cmdInfo->cmdId;
-    u8 *payload = cmdInfo->payload;
-    u8 state = 0;
-
-    switch (cmdId) {
-        case ZBHCI_CMD_AF_DATA_SEND:
-        {
-            epInfo_t dstEpInfo;
-            u16 clusterId = 0;
-            u8 srcEp = 0;
-            u8 len = 0;
-            u8 apsCnt = 0;
-
-            TL_SETSTRUCTCONTENT(dstEpInfo, 0);
-            // addr mode
-            dstEpInfo.dstAddrMode = *payload++;
-            // addr
-            if (dstEpInfo.dstAddrMode == APS_LONG_DSTADDR_WITHEP) {
-                ZB_IEEE_ADDR_REVERT(dstEpInfo.dstAddr.extAddr, payload);
-                payload += EXT_ADDR_LEN;
-            }else if(dstEpInfo.dstAddrMode == APS_DSTADDR_EP_NOTPRESETNT){
-                //COPY_BUFFERTOU16_BE(dstEpInfo->dstAddr.shortAddr,*payload);
-                //(*payload) += sizeof(u16);
-            } else if (dstEpInfo.dstAddrMode == APS_SHORT_GROUPADDR_NOEP || \
-                       dstEpInfo.dstAddrMode == APS_SHORT_DSTADDR_WITHEP) {
-                COPY_BUFFERTOU16_BE(dstEpInfo.dstAddr.shortAddr, payload);
-                payload += sizeof(u16);
-            }
-            // src Ep
-            srcEp = *payload++;
-            // dst Ep
-            dstEpInfo.dstEp = *payload++;
-            // cluster Id
-            COPY_BUFFERTOU16_BE(clusterId, payload);
-            payload += sizeof(u16);
-            // profile Id
-            COPY_BUFFERTOU16_BE(dstEpInfo.profileId, payload);
-            payload += sizeof(u16);
-            // txOptions
-            dstEpInfo.txOptions = *payload++;
-            // radius
-            dstEpInfo.radius = *payload++;
-            // data len
-            len = *payload++;
-
-            state = af_dataSend(srcEp, &dstEpInfo, clusterId, len, payload, &apsCnt);
-            printf("af_dataSend state: %d\n", state);
-        }
-        break;
-
-        default:
-        break;
-    }
-}
-
-
 volatile status_t basic_status = 0;
 void zbhci_clusterBasicHandle(void *arg){
 	zbhci_cmdHandler_t *cmdInfo = arg;
@@ -650,15 +571,14 @@ void zbhci_clusterCommonCmdHandle(void *arg){
 	u16 cmdId = cmdInfo->cmdId;
 	u8 *pCmd = cmdInfo->payload;
 
-    u8 array[64] = { 0 };
-    u16 dataLen = 0;
-    u8 *pBuf = array;
-
 	epInfo_t dstEpInfo;
 	u8 srcEp;
 	TL_SETSTRUCTCONTENT(dstEpInfo, 0);
 
 	zbhciTxClusterCmdAddrResolve(&dstEpInfo, &srcEp, &pCmd);
+
+	dstEpInfo.profileId = pCmd[1] | (pCmd[0] << 8);//get the profileId from the host(not HA_PROFILE_ID)
+	pCmd += 2;
 
 	u8 dir = *pCmd;
 	pCmd++;
@@ -812,69 +732,7 @@ void zbhci_clusterCommonCmdHandle(void *arg){
 
 			ev_buf_free((u8 *)pReadReportCfgCmd);
 		}
-    } else if (cmdId == ZBHCI_CMD_ZCL_LOCAL_ATTR_READ) {
-        u8 *payload = cmdInfo->payload;
-        zclAttrInfo_t *pAttrEntry = zcl_findAttribute(payload[0],                      // endpoint
-                                                      payload[2] | (payload[1] << 8),   // clusterId
-                                                      payload[4] | (payload[3] << 8)); // attrId
-        // endpoint
-        // clusterId
-        // attrId
-        memcpy(pBuf, payload, 5);
-        pBuf += 5;
-
-        if (pAttrEntry) {
-            // status
-            *pBuf++ = ZCL_STA_SUCCESS;
-            // type
-            *pBuf++ = pAttrEntry->type;
-            // len
-            dataLen = zcl_getAttrSize(pAttrEntry->type, pAttrEntry->data);
-            // data
-            memcpy(pBuf, pAttrEntry->data, dataLen);
-            if( (pAttrEntry->type != ZCL_DATA_TYPE_LONG_CHAR_STR)  && \
-                (pAttrEntry->type != ZCL_DATA_TYPE_LONG_OCTET_STR) && \
-                (pAttrEntry->type != ZCL_DATA_TYPE_CHAR_STR)       && \
-                (pAttrEntry->type != ZCL_DATA_TYPE_OCTET_STR)      && \
-                (pAttrEntry->type != ZCL_DATA_TYPE_STRUCT) ) {
-                    ZB_LEBESWAP(pBuf, dataLen);
-            }
-            pBuf += dataLen;
-        } else {
-            // status
-            *pBuf++ = ZCL_STA_NOT_FOUND;
-        }
-        zbhciTx(ZBHCI_CMD_ZCL_LOCAL_ATTR_READ_RSP, pBuf - array, array);
-    } else if (cmdId == ZBHCI_CMD_ZCL_LOCAL_ATTR_WRITE) {
-        u8 *payload = cmdInfo->payload;
-        status_t status = zcl_setAttrVal(payload[0],                     // endpoint
-                                         payload[2] | (payload[1] << 8),  // clusterId
-                                         payload[4] | (payload[3] << 8), // attrId
-                                         &payload[5]);                   // val
-        // endpoint
-        // clusterId
-        // attrId
-        memcpy(pBuf, payload, 5);
-        pBuf += 5;
-        *pBuf++ = status;
-        zbhciTx(ZBHCI_CMD_ZCL_LOCAL_ATTR_WRITE_RSP, pBuf - array, array);
-    } else if (cmdId == ZBHCI_CMD_ZCL_SEND_REPORT_CMD) {
-        u8 *payload = cmdInfo->payload;
-        zbhciTxClusterCmdAddrResolve(&dstEpInfo, &srcEp, &payload);
-        u8 disableDefaultRsp = *payload++;
-        // direction
-        u8 direction = *payload++;
-        // clusterId
-        u16 clusterId = BUILD_U16(payload[1], payload[0]);
-        payload += 2;
-        // attrID
-        u16 attrID = BUILD_U16(payload[1], payload[0]);
-        payload += 2;
-        // dataType
-        u8 dataType = *payload++;
-        // pData
-        zcl_sendReportCmd(srcEp, &dstEpInfo, disableDefaultRsp, direction, clusterId, attrID, dataType, payload);
-    }
+	}
 
 	ev_buf_free(arg);
 }

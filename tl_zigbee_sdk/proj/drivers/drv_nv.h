@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	drv_nv.h
+ * @file    drv_nv.h
  *
- * @brief	This is the header file for drv_nv
+ * @brief   This is the header file for drv_nv
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #pragma once
 
 
@@ -50,59 +30,65 @@
 /********************************************************************
  * @brief	Flash map usage.
  *
- * #if !defined(BOOT_LOADER_MODE) || (BOOT_LOADER_MODE == 0)
- *	 				512k							  1M
- * 		0x80000  ------------			0x100000  ------------
- *	 			|		     |					 |  MAC_Addr  |
- *	  		    |  	 NV_2 	 |			 0xFF000 |------------|
- *	 		    |		     |					 | F_CFG_Info |
- *		0x7A000 |------------|			 0xFE000 |------------|
- *	 		    | U_Cfg_Info |					 | U_Cfg_Info |
- * 		0x78000 |------------|			 0xFC000 |------------|
- *		   		| F_CFG_Info |					 |  Reserved  |
- * 		0x77000 |------------|			 0x96000 |------------|
- * 		   		|  MAC_Addr  |					 |     NV     |
- * 		0x76000 |------------|			 0x80000 |------------|
- * 		   		|		     |					 |			  |
- * 		   		|  OTA_Image |					 |			  |
- * 		   		|		     |					 |	OTA_Image |
- * 		0x40000 |------------|					 |			  |
- * 		   		|		     |					 |			  |
- * 		   		|  	 NV_1 	 |			 0x40000 |------------|
- * 		   		|		     |					 |			  |
- * 		0x34000 |------------|					 |			  |
- * 		   		|		     |					 |  Firmware  |
- * 		   		|  Firmware  |	208k			 |			  | 256k
- * 		   		|		     |					 |			  |
- * 		0x00000  ------------			 0x00000  ------------
+* #if !defined(BOOT_LOADER_MODE) || (BOOT_LOADER_MODE == 0)
+ *																					  2M							  4M
+ *                                                                      0x200000  ------------       	0x400000  ------------
+ *	 				512k							  1M				    	 |  MAC_Addr  |      			 |  MAC_Addr  |
+ * 		0x80000  ------------			0x100000  ------------          0x1FF000 |------------|      	0x3FF000 |------------|
+ *	 			|		     |					 |  MAC_Addr  |     	    	 | F_CFG_Info |      			 | F_CFG_Info |
+ *	  		    |  	 NV_2 	 |			 0xFF000 |------------|         0x1FE000 |------------|  	    0x3FE000 |------------|
+ *	 		    |		     |					 | F_CFG_Info |     	   		 |	Reserved  |	       			 |	Reserved  |
+ *		0x7A000 |------------|			 0xFE000 |------------|     	 0xFE000 |------------| 	     0xFE000 |------------|
+ *	 		    | U_Cfg_Info |					 | U_Cfg_Info |     	   		 | U_Cfg_Info |      			 | U_Cfg_Info |
+ * 		0x78000 |------------|			 0xFC000 |------------|     	 0xFC000 |------------|      	 0xFC000 |------------|
+ *		   		| F_CFG_Info |					 |  Reserved  |     	    	 |  Reserved  |      			 |  Reserved  |
+ * 		0x77000 |------------|			 0x96000 |------------|     	 0x96000 |------------|      	 0x96000 |------------|
+ * 		   		|  MAC_Addr  |					 |     NV     |     	    	 |     NV     |      			 |     NV     |
+ * 		0x76000 |------------|			 0x80000 |------------|     	 0x80000 |------------|      	 0x80000 |------------|
+ * 		   		|		     |					 |			  |     	    	 |			  |      			 |			  |
+ * 		   		|  OTA_Image |					 |			  |     	    	 |			  |      			 |			  |
+ * 		   		|		     |					 |	OTA_Image |     	    	 |	OTA_Image |      			 |	OTA_Image |
+ * 		0x40000 |------------|					 |			  |     	    	 |			  |      			 |			  |
+ * 		   		|		     |					 |			  |     	    	 |			  |      			 |			  |
+ * 		   		|  	 NV_1 	 |			 0x40000 |------------|     	 0x40000 |------------|      	 0x40000 |------------|
+ * 		   		|		     |					 |			  |     	    	 |			  |      			 |			  |
+ * 		0x34000 |------------|					 |			  |     	    	 |			  |      			 |			  |
+ * 		   		|		     |					 |  Firmware  |     	    	 |  Firmware  |      			 |  Firmware  |
+ * 		   		|  Firmware  |	208k			 |			  | 256k	    	 |			  | 256k 			 |			  | 256k
+ * 		   		|		     |					 |			  |     	    	 |			  |         		 |			  |
+ * 		0x00000  ------------			 0x00000  ------------      	 0x00000  ------------           0x00000  ------------
+ *
+ *
  *
  * #else
- *	 				512k							  1M
- * 		0x80000  ------------			0x100000  ------------
- *	 			|			 |					 |  MAC_Addr  |
- *	 			|  	 NV_2 	 |			 0xFF000 |------------|
- *	 			|			 |					 | F_CFG_Info |
- *	 	0x7A000 |------------|			 0xFE000 |------------|
- *	 			| U_Cfg_Info |					 | U_Cfg_Info |
- *	 	0x78000 |------------|			 0xFC000 |------------|
- *	 			| F_CFG_Info |					 |		      |
- *	 	0x77000 |------------|					 |     NV     |
- *	 			|  MAC_Addr  |					 |		      |
- *	 	0x76000 |------------|			 0xE6000 |------------|
- *	 			|		     |					 |		      |
- *	 			|  	 NV_1	 |					 |		      |
- *	 			|		     |					 |	OTA_Image |
- *	 	0x6A000 |------------|					 |		      |
- *	 			|		     |					 |		      |
- *	 			|  OTA_Image |			 0x77000 |------------|
- *	 			|		     |					 |		      |
- *	 	0x39000 |------------|					 |		      |
- *	 			|			 |					 |  Firmware  |
- *	 			|  Firmware	 |	196k			 |		      | 444k
- *	 			|			 |					 |		      |
- *	 	0x08000 |------------|			 0x08000 |------------|
- *	 			| BootLoader |					 | BootLoader |
- *	 	0x00000  ------------			 0x00000  ------------
+ *																					  2M							  4M
+ *                                                                      0x200000  ------------          0x400000  ------------
+ *	 				512k							  1M						 |  MAC_Addr  |         		 |  MAC_Addr  |
+ * 		0x80000  ------------			0x100000  ------------          0x1FF000 |------------|         0x3FF000 |------------|
+ *	 			|			 |					 |  MAC_Addr  |         		 | F_CFG_Info |         		 | F_CFG_Info |
+ *	 			|  	 NV_2 	 |			 0xFF000 |------------|         0x1FE000 |------------|         0x3FE000 |------------|
+ *	 			|			 |					 | F_CFG_Info |         		 |  Reserved  |         		 |  Reserved  |
+ *	 	0x7A000 |------------|			 0xFE000 |------------|          0xFE000 |------------|          0xFE000 |------------|
+ *	 			| U_Cfg_Info |					 | U_Cfg_Info |         		 | U_Cfg_Info |         		 | U_Cfg_Info |
+ *	 	0x78000 |------------|			 0xFC000 |------------|          0xFC000 |------------|          0xFC000 |------------|
+ *	 			| F_CFG_Info |					 |		      |         		 |		      |         		 |		      |
+ *	 	0x77000 |------------|					 |     NV     |         		 |     NV     |         		 |     NV     |
+ *	 			|  MAC_Addr  |					 |		      |         		 |		      |         		 |		      |
+ *	 	0x76000 |------------|			 0xE6000 |------------|          0xE6000 |------------|          0xE6000 |------------|
+ *	 			|		     |					 |		      |         		 |		      |         		 |		      |
+ *	 			|  	 NV_1	 |					 |		      |         		 |		      |         		 |		      |
+ *	 			|		     |					 |	OTA_Image |         		 |	OTA_Image |         		 |	OTA_Image |
+ *	 	0x6A000 |------------|					 |		      |         		 |		      |         		 |		      |
+ *	 			|		     |					 |		      |         		 |		      |         		 |		      |
+ *	 			|  OTA_Image |			 0x77000 |------------|          0x77000 |------------|          0x77000 |------------|
+ *	 			|		     |					 |		      |         		 |		      |         		 |		      |
+ *	 	0x39000 |------------|					 |		      |         		 |		      |         		 |		      |
+ *	 			|			 |					 |  Firmware  |         		 |  Firmware  |         		 |  Firmware  |
+ *	 			|  Firmware	 |	196k			 |		      | 444k    		 |		      | 444k    		 |		      | 444k
+ *	 			|			 |					 |		      |         		 |		      |         		 |		      |
+ *	 	0x08000 |------------|			 0x08000 |------------|          0x08000 |------------|          0x08000 |------------|
+ *	 			| BootLoader |					 | BootLoader |         		 | BootLoader |         		 | BootLoader |
+ *	 	0x00000  ------------			 0x00000  ------------           0x00000  ------------           0x00000  ------------
  *
  * #endif
  */
@@ -124,8 +110,14 @@
 #define FLASH_ADDR_OF_MAC_ADDR_512K		0x76000
 #define FLASH_ADDR_OF_F_CFG_INFO_512K	0x77000
 //1M flash
-#define FLASH_ADDR_0F_MAC_ADDR_1M		0xFF000
+#define FLASH_ADDR_OF_MAC_ADDR_1M		0xFF000
 #define FLASH_ADDR_OF_F_CFG_INFO_1M		0xFE000
+//2M flash
+#define FLASH_ADDR_OF_MAC_ADDR_2M		0x1FF000
+#define FLASH_ADDR_OF_F_CFG_INFO_2M		0x1FE000
+//4M flash
+#define FLASH_ADDR_OF_MAC_ADDR_4M		0x3FF000
+#define FLASH_ADDR_OF_F_CFG_INFO_4M		0x3FE000
 
 /************************************************************************/
 extern u32 g_u32MacFlashAddr;
@@ -178,7 +170,7 @@ extern u32 g_u32CfgFlashAddr;
  * The following is the detailed user configure information (U_CFG_Info).
  */
 /* 16 bytes for pre-install code. */
-#if FLASH_CAP_SIZE_1M
+#if(FLASH_CAP_SIZE_1M || FLASH_CAP_SIZE_2M || FLASH_CAP_SIZE_4M)
 #define CFG_PRE_INSTALL_CODE			(0xFD000)
 #else
 #define CFG_PRE_INSTALL_CODE			(0x78000)
@@ -189,7 +181,7 @@ extern u32 g_u32CfgFlashAddr;
  * The device will check this byte when powered on, if it is not 0xFF,
  * it will erase NV first.
  */
-#if FLASH_CAP_SIZE_1M
+#if(FLASH_CAP_SIZE_1M || FLASH_CAP_SIZE_2M || FLASH_CAP_SIZE_4M)
 #define CFG_FACTORY_RST_CNT			  	(0xFC000)
 #else
 #define CFG_FACTORY_RST_CNT			  	(0x79000)
@@ -199,14 +191,14 @@ extern u32 g_u32CfgFlashAddr;
  * Flash address of NV module.
  */
 #if !defined(BOOT_LOADER_MODE) || (BOOT_LOADER_MODE == 0)
-#if FLASH_CAP_SIZE_1M
+#if(FLASH_CAP_SIZE_1M || FLASH_CAP_SIZE_2M || FLASH_CAP_SIZE_4M)
 	#define NV_BASE_ADDRESS				(0x80000)
 #else
 	#define	NV_BASE_ADDRESS				(0x34000)
 	#define	NV_BASE_ADDRESS2			(0x7A000)
 #endif
 #else
-#if FLASH_CAP_SIZE_1M
+#if(FLASH_CAP_SIZE_1M || FLASH_CAP_SIZE_2M || FLASH_CAP_SIZE_4M)
 	#define NV_BASE_ADDRESS				(0xE6000)
 #else
 	#define	NV_BASE_ADDRESS				(0x6A000)
@@ -225,7 +217,7 @@ extern u32 g_u32CfgFlashAddr;
  * Flash address of OTA image.
  */
 #if !defined(BOOT_LOADER_MODE) || (BOOT_LOADER_MODE == 0)
-#if FLASH_CAP_SIZE_1M
+#if(FLASH_CAP_SIZE_1M || FLASH_CAP_SIZE_2M || FLASH_CAP_SIZE_4M)
 	//max size = (0x80000 - 0) / 2 = 256k
 	#define FLASH_OTA_IMAGE_MAX_SIZE	((NV_BASE_ADDRESS - FLASH_ADDR_OF_APP_FW) / 2)
 #else
@@ -266,13 +258,16 @@ typedef enum{
 
 
 
-
+#define NV_SECT_INFO_CHECK_BITS			6
+#define NV_SECT_INFO_CHECK_BITMASK		0x3f
+#define NV_SECT_INFO_SECTNO_BITS		(8-NV_SECT_INFO_CHECK_BITS)
+#define NV_SECT_INFO_SECTNO_BITMASK		0x3
 
 /* sector info(4Bytes) + index info(8Bytes) + index info(8Bytes) + ... */
 typedef struct{
 	u16 usedFlag;
 	u8  idName;
-	u8  opSect;
+	u8  opSect;    //crcCheckBit(6bits) + opSect(2bits)
 }nv_sect_info_t;
 
 typedef struct{
@@ -280,6 +275,9 @@ typedef struct{
 	u16 size;
 	u8  itemId;
 	u8  usedState;
+#if defined(MCU_CORE_B91)
+	u8  resv[8];   //PUYA flash only supports re-write 64 times
+#endif
 }nv_info_idx_t;
 
 /* item:  item_hdr(8Bytes) + payload*/
@@ -312,11 +310,11 @@ typedef struct{
  * NV_MAX_MODULS
  */
 typedef enum{
-	NV_MODULE_ZB_INFO 				= 0,
-	NV_MODULE_ADDRESS_TABLE 		= 1,
-    NV_MODULE_APS 					= 2,
-    NV_MODULE_ZCL 					= 3,
-	NV_MODULE_NWK_FRAME_COUNT 		= 4,
+	NV_MODULE_ZB_INFO 				= 0,      /* mustn't modify it */
+	NV_MODULE_ADDRESS_TABLE 		= 1,      /* mustn't modify it */
+    NV_MODULE_APS 					= 2,      /* mustn't modify it */
+    NV_MODULE_ZCL 					= 3,      /* mustn't modify it */
+	NV_MODULE_NWK_FRAME_COUNT 		= 4,      /* mustn't modify it */
 	NV_MODULE_OTA 					= 5,
 	NV_MODULE_APP 					= 6,
 	NV_MODULE_KEYPAIR 				= 7,
@@ -326,19 +324,21 @@ typedef enum{
 typedef enum{
 	NV_ITEM_ID_INVALID				= 0,/* Item id 0 should not be used. */
 
-	NV_ITEM_ZB_INFO 				= 1,
-	NV_ITEM_ADDRESS_FOR_NEIGHBOR,
-	NV_ITEM_ADDRESS_FOR_BIND,
-	NV_ITEM_APS_SSIB,
-	NV_ITEM_APS_GROUP_TABLE,
-	NV_ITEM_APS_BINDING_TABLE,
+	NV_ITEM_ZB_INFO 				= 1, /* mustn't modify it */
+	NV_ITEM_ADDRESS_FOR_NEIGHBOR,        /* mustn't modify it */
+	NV_ITEM_ADDRESS_FOR_BIND,            /* mustn't modify it */
+	NV_ITEM_APS_SSIB,                    /* mustn't modify it */
+	NV_ITEM_APS_GROUP_TABLE,             /* mustn't modify it */
+	NV_ITEM_APS_BINDING_TABLE,           /* mustn't modify it */
 
-	NV_ITEM_NWK_FRAME_COUNT,
+	NV_ITEM_NWK_FRAME_COUNT,             /* mustn't modify it */
 
-	NV_ITEM_SS_KEY_PAIR,
+	NV_ITEM_SS_KEY_PAIR,                 /* mustn't modify it */
 
 	NV_ITEM_OTA_HDR_SERVERINFO,
 	NV_ITEM_OTA_CODE,
+
+	NV_ITEM_ED_TIMEOUT,
 
 	NV_ITEM_ZCL_REPORT 				= 0x20,
 	NV_ITEM_ZCL_ON_OFF,
@@ -353,6 +353,9 @@ typedef enum{
 
 	NV_ITEM_APP_SIMPLE_DESC,
 	NV_ITEM_APP_POWER_CNT,
+	NV_ITEM_APP_GP_TRANS_TABLE,
+
+	NV_ITEM_APS_BINDING_TABLE_V2    = 0x80,  /* mustn't modify it */
 
 	NV_ITEM_ID_MAX					= 0xFF,/* Item id 0xFF should not be used. */
 }nv_item_t;
@@ -366,7 +369,11 @@ typedef enum{
     NV_ITEM_LEN_NOT_MATCH,
     NV_CHECK_SUM_ERROR,
     NV_ENABLE_PROTECT_ERROR,
-    NV_NO_MEDIA
+    NV_NO_MEDIA,
+    NV_DATA_CHECK_ERROR,
+	NV_ITEM_CHECK_ERROR,
+	NV_MODULE_NOT_FOUND,
+	NV_MODULE_ERASE_NEED
 } nv_sts_t;
 
 
@@ -374,16 +381,22 @@ typedef enum{
 #define	FLASH_SECTOR_SIZE						4096//4K
 
 #define NV_SECTOR_VALID							0x5A5A
+#define NV_SECTOR_VALID_CHECKCRC				0x7A7A
+#define NV_SECTOR_VALID_READY_CHECKCRC			0xFAFA
 #define NV_SECTOR_INVALID						0x5050
 #define NV_SECTOR_IDLE							0xFFFF
 
 #define ITEM_FIELD_VALID						0x5A
+#define ITEM_FIELD_VALID_SINGLE					0x7A
 #define ITEM_FIELD_INVALID						0x50
 #define ITEM_FIELD_OPERATION					0xFA
 #define ITEM_FIELD_IDLE							0xFF
 
+#define ITEM_HDR_FIELD_VALID_CHECKSUM			0x5A
+#define ITEM_HDR_FIELD_VALID_CHECKCRC			0x7A
 
-#if FLASH_CAP_SIZE_1M
+
+#if(FLASH_CAP_SIZE_1M || FLASH_CAP_SIZE_2M || FLASH_CAP_SIZE_4M)
 #define MODULES_START_ADDR(id)					(NV_BASE_ADDRESS + FLASH_SECTOR_SIZE * (2 * id))
 #define NV_SECTOR_SIZE(id)						((id == NV_MODULE_KEYPAIR) ? (4 * FLASH_SECTOR_SIZE) : FLASH_SECTOR_SIZE)
 #define MODULE_INFO_SIZE(id)					((id == NV_MODULE_OTA || id == NV_MODULE_KEYPAIR || id == NV_MODULE_ADDRESS_TABLE) ? ((id == NV_MODULE_KEYPAIR) ? (12*FLASH_PAGE_SIZE) : (4*FLASH_PAGE_SIZE)) : (2*FLASH_PAGE_SIZE))
@@ -413,11 +426,14 @@ nv_sts_t nv_resetModule(u8 modules);
 nv_sts_t nv_flashWriteNew(u8 single, u16 id, u8 itemId, u16 len, u8 *buf);
 nv_sts_t nv_flashReadNew(u8 single, u8 id, u8 itemId, u16 len, u8 *buf);
 nv_sts_t nv_itemDeleteByIndex(u8 id, u8 itemId, u8 opSect, u16 opIdx);
+nv_sts_t nv_flashSingleItemRemove(u8 id, u8 itemId, u16 len);
 nv_sts_t nv_flashReadByIndex(u8 id, u8 itemId, u8 opSect, u16 opIdx, u16 len, u8 *buf);
+void nv_itemLengthCheckAdd(u8 itemId, u16 len);
 nv_sts_t nv_resetToFactoryNew(void);
 bool nv_facrotyNewRstFlagCheck(void);
 void nv_facrotyNewRstFlagSet(void);
 void nv_facrotyNewRstFlagClear(void);
 nv_sts_t nv_nwkFrameCountSaveToFlash(u32 frameCount);
 nv_sts_t nv_nwkFrameCountFromFlash(u32 *frameCount);
+nv_sts_t nv_flashSingleItemSizeGet(u8 id, u8 itemId, u16 *len);
 

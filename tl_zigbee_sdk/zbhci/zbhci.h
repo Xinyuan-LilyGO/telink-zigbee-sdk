@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	zbhci.h
+ * @file    zbhci.h
  *
- * @brief	This is the header file for zbhci
+ * @brief   This is the header file for zbhci
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #ifndef ZBHCI_H
 #define	ZBHCI_H
 
@@ -61,11 +41,16 @@
 #define ZBHCI_MSG_STATUS_ERROR_END_CHAR      0xE2
 #define ZBHCI_MSG_STATUS_BAD_MSG             0xE3
 #define ZBHCI_MSG_STATUS_UART_EXCEPT         0xE4
+#define ZBHCI_MSG_STATUS_CRC_ERROR			 0xE5
 
 #define	ZBHCI_MSG_START_FLAG				 0x55
 #define	ZBHCI_MSG_END_FLAG					 0xAA
 #define	ZBHCI_MSG_HDR_LEN					 0x07
 
+#define HCI_OTA_BLOCK_SIZE_MAX					40
+#define HCI_OTA_BLOCK_INTERVAL_NORMAL			10
+#define HCI_OTA_BLOCK_REQUEST_RETRY_INTERVAL	5*100
+#define HCI_OTA_BLOCK_REQUEST_RETRY_CNT_MAX		5
 
 typedef enum{
 	ZBHCI_GET_MAC_ADDR_MODE,
@@ -84,11 +69,6 @@ typedef enum{
 	ZBHCI_CMD_BDB_NODE_DELETE,
 	ZBHCI_CMD_BDB_TX_POWER_SET,
 	ZBHCI_CMD_ACKNOWLEDGE					= 0x8000,
-	ZBHCI_CMD_BDB_COMMISSION_FORMATION_RSP  = 0x8001,
-
-    ZBHCI_CMD_NETWORK_STATE_REQ             = 0x000B,
-    ZBHCI_CMD_NETWORK_STATE_RSP             = 0x800B,
-	ZBHCI_CMD_NETWORK_STATE_REPORT          = 0x800C,
 
 	ZBHCI_CMD_DISCOVERY_NWK_ADDR_REQ		= 0x0010,
 	ZBHCI_CMD_DISCOVERY_IEEE_ADDR_REQ   	,//= 0x0011,
@@ -96,7 +76,6 @@ typedef enum{
 	ZBHCI_CMD_DISCOVERY_SIMPLE_DESC_REQ		,//= 0x0013,
 	ZBHCI_CMD_DISCOVERY_MATCH_DESC_REQ		,//= 0x0014,
 	ZBHCI_CMD_DISCOVERY_ACTIVE_EP_REQ		,//= 0x0015,
-	ZBHCI_CMD_DISCOVERY_LEAVE_REQ			,//= 0x0016,
 
 	ZBHCI_CMD_DISCOVERY_NWK_ADDR_RSP		= 0x8010,
 	ZBHCI_CMD_DISCOVERY_IEEE_ADDR_RSP   	,//= 0x0011,
@@ -123,36 +102,35 @@ typedef enum{
 	ZBHCI_CMD_MGMT_LEAVE_RSP				,//= 0x0032,
 	ZBHCI_CMD_MGMT_DIRECT_JOIN_RSP			,//= 0x0033,
 	ZBHCI_CMD_MGMT_PERMIT_JOIN_RSP			,//= 0x0034,
-	ZBHCI_CMD_MGMT_NWK_UPDATE_RSP			,//= 0x0035,
+	ZBHCI_CMD_MGMT_NWK_UPDATE_NOTIFY		,//= 0x0035,
 
 	ZBHCI_CMD_NODES_JOINED_GET_REQ			= 0x0040,
 	ZBHCI_CMD_NODES_TOGLE_TEST_REQ			= 0x0041,
 	ZBHCI_CMD_TXRX_PERFORMANCE_TEST_REQ		= 0x0042,
 	ZBHCI_CMD_AF_DATA_SEND_TEST_REQ			= 0x0044,
+	ZBHCI_CMD_GET_LOCAL_NWK_INFO_REQ		= 0x0045,
+	ZBHCI_CMD_GET_CHILD_NODES_REQ           = 0x0046,
+	ZBHCI_CMD_REMOVE_ALL_CHILD_NODES_REQ    = 0x0047,
 
 	ZBHCI_CMD_NODES_JOINED_GET_RSP			= 0x8040,
 	ZBHCI_CMD_NODES_TOGLE_TEST_RSP			= 0x8041,
 	ZBHCI_CMD_TXRX_PERFORMANCE_TEST_RSP		= 0x8042,
 	ZBHCI_CMD_NODES_DEV_ANNCE_IND			= 0x8043,
 	ZBHCI_CMD_AF_DATA_SEND_TEST_RSP			= 0x8044,
-	ZBHCI_CMD_LEAVE_INDICATION		        = 0x8048,
+	ZBHCI_CMD_GET_LOCAL_NWK_INFO_RSP		= 0x8045,
+	ZBHCI_CMD_GET_CHILD_NODES_RSP           = 0x8046,
 
 	ZBHCI_CMD_ZCL_ATTR_READ					= 0x0100,
 	ZBHCI_CMD_ZCL_ATTR_WRITE				,//= 0x0101,
 	ZBHCI_CMD_ZCL_CONFIG_REPORT				,//= 0x0102,
 	ZBHCI_CMD_ZCL_READ_REPORT_CFG			,//= 0x0103,
-	ZBHCI_CMD_ZCL_LOCAL_ATTR_READ           = 0x0105,
-	ZBHCI_CMD_ZCL_LOCAL_ATTR_WRITE          ,//= 0x0106,
-	ZBHCI_CMD_ZCL_SEND_REPORT_CMD           = 0x0108,
 
 	ZBHCI_CMD_ZCL_ATTR_READ_RSP				= 0x8100,
 	ZBHCI_CMD_ZCL_ATTR_WRITE_RSP			,//= 0x0101,
 	ZBHCI_CMD_ZCL_CONFIG_REPORT_RSP			,//= 0x0102,
 	ZBHCI_CMD_ZCL_READ_REPORT_CFG_RSP		,//= 0x0103,
-	ZBHCI_CMD_ZCL_REPORT_MSG_RCV            ,//= 0x0104,
-	ZBHCI_CMD_ZCL_LOCAL_ATTR_READ_RSP       = 0x8105,
-	ZBHCI_CMD_ZCL_LOCAL_ATTR_WRITE_RSP      ,//= 0x8106,
-	ZBHCI_CMD_ZCL_ATTR_WRITE_RCV            ,//= 0x8107,
+	ZBHCI_CMD_ZCL_REPORT_MSG_RCV,
+	ZBHCI_CMD_ZCL_DEFAULT_RSP,
 
 	ZBHCI_CMD_ZCL_BASIC						= 0x0110,
 	ZBHCI_CMD_ZCL_BASIC_RESET				= 0x0110,
@@ -179,8 +157,6 @@ typedef enum{
 	ZBHCI_CMD_ZCL_ONOFF_ON					= 0x0140,
 	ZBHCI_CMD_ZCL_ONOFF_OFF,
 	ZBHCI_CMD_ZCL_ONOFF_TOGGLE,
-
-	ZBHCI_CMD_ZCL_ONOFF_CMD_RCV             = 0x8140,
 
 	ZBHCI_CMD_ZCL_LEVEL						= 0x0150,
 	ZBHCI_CMD_ZCL_LEVEL_MOVE2LEVEL			= 0x0150,
@@ -222,7 +198,12 @@ typedef enum{
 	ZBHCI_CMD_MAC_ADDR_IND					= 0x8201,
 	ZBHCI_CMD_NODE_LEAVE_IND				= 0x8202,
 
-	ZBHCI_CMD_AF_DATA_SEND                  = 0x0300,
+	ZBHCI_CMD_OTA_START_REQUEST				= 0x0210,
+	ZBHCI_CMD_OTA_BLOCK_RESPONSE			= 0x0211,
+
+	ZBHCI_CMD_OTA_START_RESPONSE			= 0x8210,
+	ZBHCI_CMD_OTA_BLOCK_REQUEST				= 0x8211,
+	ZBHCI_CMD_OTA_END_STATUS				= 0x8212,
 }teHCI_MsgType;
 
 /** Status message */
@@ -235,6 +216,14 @@ typedef enum
     ZBHCI_MSG_STATUS_NO_MEMORY,
     ZBHCI_MSG_STATUS_STACK_ALREADY_STARTED,
 }zbhci_msgStatus_e;
+
+typedef enum{
+	ZBHCI_OTA_SUCCESS,
+    ZBHCI_OTA_GET_BLOCK_TIMEOUT,
+    ZBHCI_OTA_IN_PROGRESS,
+    ZBHCI_OTA_INCORRECT_OFFSET,
+    ZBHCI_OTA_FILE_OVERSIZE,
+}zbhci_ota_status_e;
 
 typedef enum{
 	ZBHCI_TX_SUCCESS,
@@ -319,8 +308,13 @@ typedef struct{
 }zbhci_mgmt_nodesJoined_rsp_hdr_t;
 
 typedef struct{
+	addrExt_t macAddr;		// /*!	the mac address list */
+	u16 nwkAddr;
+}zbhci_mgmt_nodesJoined_info_t;
+
+typedef struct{
 	zbhci_mgmt_nodesJoined_rsp_hdr_t hdr;
-	addrExt_t macAddrList[6];		//[6];	/*!	the mac address list */
+	zbhci_mgmt_nodesJoined_info_t addrList[5];		//[5];	/*!	the mac address list */
 }zbhci_mgmt_nodesJoined_rsp_t;
 
 
@@ -372,7 +366,11 @@ typedef struct{
 }zbhci_nodeLeaveInd_t;
 
 typedef struct{
-	u8 ep;
+	u8 dstMode;
+	tl_zb_addr_t dstAddr; //addrMode = APS_DSTADDR_EP_NOTPRESETNT
+	u8 srcEp;			//
+	u8 dstEp;			//addrMode = APS_DSTADDR_EP_NOTPRESETNT APS_SHORT_GROUPADDR_NOEP
+	u16 clusterId;
 	u8 status;
 	u8 apsCnt;
 }zbhci_app_data_confirm_t;
@@ -387,6 +385,18 @@ typedef struct{
 	u8  dataApsCnt;
 	u8	performaceTest;
 }zbhci_afTestReq_t;
+
+typedef struct{
+	u32 ota_flash_addr_start;
+	u32 ota_file_total_size;
+	u32 ota_file_offset;
+	u8  ota_process_start;
+	u8  block_send_cnt;
+}hci_ota_info_t;
+
+typedef struct{
+	u8 startIdx;             /*! start of the child table index */
+}zbhci_childNodeGetReq_t;
 
 extern zbhci_afTestReq_t g_afTestReq;
 

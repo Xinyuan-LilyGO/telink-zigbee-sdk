@@ -1,3 +1,312 @@
+## V3.6.8.2(Public release)
+
+### Features
+* Add SDK version information in the bin firmware.
+* Add CRC check to ensure the integrity of new firmware upgraded by OTA and bootstrap.
+* Update ADC and flash driver for 8258 with embedded zbit flash.
+* Add patches folder for other version to fix the flash writing issue(nv, ota...).
+### Bug Fixes
+* Fix NV storage issues and ensure the correctness of NV data.
+* Fix buffer free issue under specific conditions in touch link process.
+* Fix the issue that the paired link key may fail to recover after OTA.
+### Code Refactoring
+* N/A
+### Performance
+* Add RF busy check to avoid the error raw data.
+### BREAKING CHANGES
+* N/A
+
+### Features
+* 在bin固件中添加SDK版本信息。
+* 添加CRC检查以确保OTA和引导升级的新固件的完整性。
+* 为内嵌zbit Flash的8258芯片更新ADC和Flash驱动。
+* 添加patches目录，针对其他版本修复flash相关问题。
+### Bug Fixes
+* 修复NV存储问题并确保NV数据的正确性。
+* 修复Touch Link过程中在特定条件下buffer释放异常的问题。
+* 修复OTA后配对链接密钥可能恢复失败的问题。
+### Code Refactoring
+* N/A
+### Performance
+* 添加RF忙标志检查避免错误的原始数据。
+### BREAKING CHANGES
+* N/A
+
+
+## V3.6.8.1(Public release)
+
+### Features
+* N/A
+### Bug Fixes
+* Fix address mapping table update issue after address conflict.
+* Fix APS group table management issue.
+* Fix BRC passive ack issue.
+* Fix MgmtBindResp handler issue.
+* Fix APS counter issue when transferring data via bond mode.
+### Code Refactoring
+* Remove FLASH_W_PROTECT related code.
+* Add new parameter "tcAddr" in bdb_join_direct().
+### Performance
+* Optimize OTA query.
+* Update ADC driver to support two-point calibration.
+### BREAKING CHANGES
+* N/A
+
+### Features
+* N/A
+### Bug Fixes
+* 修复地址冲突后地址映射表更新的问题。
+* 修复APS层分组表管理的问题。
+* 修复广播被动应答的问题。
+* 修复MgmtBindResp处理的问题。
+* 修复绑定模式传输数据时的APS计数器问题。
+### Code Refactoring
+* 删除了FLASH_W_PROTECT相关代码。
+* 在bdb_join_direct()中添加了新参数tcAddr。
+### Performance
+* 优化OTA查询。
+* 更新ADC驱动程序以支持两点校准。
+### BREAKING CHANGES
+* N/A
+
+
+## V3.6.8.0(Public release)
+
+### Features
+* Coordinator and router support green power combo basic feature.
+* Bootloader supports firmware upgrade via UART.
+* Provide PTA solutions.
+* Provides internal flash write protection.
+* Provides fast data polling setup for end devices.
+* Update b91 driver to support 2M/4M internal flash.
+* Update b91 to support protection code.
+### Bug Fixes
+* Fix the HCI_UART buffer overflow issue.
+* Fix the seconds timer event lost issue for sleep end device.
+* Fix the binding table, group table and scene table storage issue.
+* Fix the decryption failure caused by frame counter.
+### Code Refactoring
+* Provides two network rejoin APIs for end devices,
+  - zb_rejoinReq(), only do network rejoin once and call back the result to the upper layer, regardless of success.
+  - zb_rejoinReqWithBackOff(), which will trigger the rejoin backoff according to the zdoCfgAttrDefault settings until rejoin success.
+### Performance
+* Improve network join performance.
+### BREAKING CHANGES
+* Change platform 9518 to b91.
+
+### Features
+* 协调器和路由设备支持GPCB。
+* Bootloader支持通过UART固件升级。
+* 提供PTA接口。
+* 提供内部FLASH写保护接口。
+* 为终端设备提供快速数据查询的配置接口。
+* 更新b91驱动以支持2M/4M内部FLASH。
+* 更新b91以支持保护码。
+### Bug Fixes
+* 修复HCI_UART内存溢出问题。
+* 修复休眠设备的秒定时器事件丢失的问题。
+* 修复绑定表、组表、场景表存储问题。
+* 修复帧计数器导致的解密失败。
+### Code Refactoring
+* 为终端设备提供两种rejoin接口，
+  - zb_rejoinReq()，只做一次rejoin并将结果回调给上层，不管成功与否。
+  - zb_rejoinReqWithBackOff()，将依据zdoCfgAttrDefault的配置进行rejoin和回退，直到rejoin成功。
+### Performance
+* 提高网络加入性能。
+### BREAKING CHANGES
+* 将平台9518更改为b91。
+
+
+## V3.6.7.4(Public release)
+
+### Features
+* N/A
+### Bug Fixes
+* Fix the OTA recovery issue.
+* Fix the fragment message handling issue.
+* Fix the network status command back roll issue.
+### Code Refactoring
+* Add board_8258_evk_v1p2 file for light demo.
+### Performance
+* N/A
+### BREAKING CHANGES
+* N/A
+### CodeSize
+* Flash:
+  - ZC: 167kb
+  - ZR: 187kb
+  - ZED:127kb
+* RAM:
+  - ZC: 33kb
+  - ZR: 30kb
+  - ZED:25kb
+
+### Features
+* N/A
+### Bug Fixes
+* 修复OTA恢复问题。
+* 修复分帧消息处理问题。
+* 修复网络状态命令转圈的问题。
+### Code Refactoring
+* 灯示例中添加board_8258_evk_v1p2文件。
+### Performance
+* N/A
+### BREAKING CHANGES
+* N/A
+### CodeSize
+* Flash:
+  - ZC: 167kb
+  - ZR: 187kb
+  - ZED:127kb
+* RAM:
+  - ZC: 33kb
+  - ZR: 30kb
+  - ZED:25kb
+
+
+## V3.6.7.3(Public release)
+
+### Features
+* N/A
+### Bug Fixes
+* Fix the zb_coordinator library issue.
+### Code Refactoring
+* BRC jitter can be configured by user.
+### Performance
+* N/A
+### BREAKING CHANGES
+* N/A
+### CodeSize
+* Flash:
+  - ZC: 167kb
+  - ZR: 187kb
+  - ZED:127kb
+* RAM:
+  - ZC: 33kb
+  - ZR: 30kb
+  - ZED:25kb
+
+### Features
+* N/A
+### Bug Fixes
+* 修复 zb_coordinator 库的问题。
+### Code Refactoring
+* 广播jitter参数用户可配。
+### Performance
+* N/A
+### BREAKING CHANGES
+* N/A
+### CodeSize
+* Flash:
+  - ZC: 167kb
+  - ZR: 187kb
+  - ZED:127kb
+* RAM:
+  - ZC: 33kb
+  - ZR: 30kb
+  - ZED:25kb
+
+
+## V3.6.7.2(Public release)
+
+### Features
+* Provide SRX mode for PHY layer.([35442f95](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/35442f95978fe10eb17a2f9d4c55c34b4345c2ef))
+### Bug Fixes
+* Fix the issue that the parent does not save the end device timeout value.
+* Fix the poll control handler.
+### Code Refactoring
+* Clean HCI and APP layer code.
+### Performance
+* N/A
+### BREAKING CHANGES
+* N/A
+### CodeSize
+* Flash:
+  - ZC: 167kb
+  - ZR: 187kb
+  - ZED:127kb
+* RAM:
+  - ZC: 33kb
+  - ZR: 30kb
+  - ZED:25kb
+
+### Features
+* PHY层提供SRX模式。([35442f95](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/35442f95978fe10eb17a2f9d4c55c34b4345c2ef))
+### Bug Fixes
+* 修复父设备没有保存end device timeout的问题。
+* 修复poll control处理程序。
+### Code Refactoring
+* 清理HCI和APP层代码。
+### Performance
+* N/A
+### BREAKING CHANGES
+* N/A
+### CodeSize
+* Flash:
+  - ZC: 167kb
+  - ZR: 187kb
+  - ZED:127kb
+* RAM:
+  - ZC: 33kb
+  - ZR: 30kb
+  - ZED:25kb
+
+
+## V3.6.7.0(Public release)
+
+### Features
+* Replace Telink BSD license with Apache 2.0 License.([43aa6dc2](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/43aa6dc2fdf59f599a1eb1d2be2f4ce7dee07a3e))
+* Update low voltage detection mechanism.([aff6c2d1](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/aff6c2d1fefdd60a31cd168f7656ca2c9c4a1440))
+### Bug Fixes
+* Fix OTA message processing issue.([26157426](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/26157426f2d649ff5f7d9ad5e12984b58606026b))
+* Fix pre-config NWK key issue.([ffd26cba](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/ffd26cba8b9055925a4fc8b94e3c74656215acb2))
+* Fix GPPB security issue.([2ea2a1ea](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/2ea2a1ea05b5a179593f0fb18328f88d93e20ea5))
+* Fix Trust Center Rejoin mechanism.([b9fc3b00](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/b9fc3b002477fbc8a63c579a21e6298aee9baa34))
+### Code Refactoring
+* Clean up the ZCL code.([29816110](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/298161105a5cac68f0dace08f394fbc370c8d7ee))
+* Clean up the HCI code.([861240ec](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/861240ec9ebee31c53cb3d14eef543f627021dc3))
+### Performance
+* Improve network performance and authentication speed.([ac626730](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/ac626730c2dc973ac4cbbda7c4feaffcdee64335))
+### BREAKING CHANGES
+* N/A
+
+### CodeSize
+* Flash:
+  - ZC: 165kb
+  - ZR: 187kb
+  - ZED:127kb
+* RAM:
+  - ZC: 33kb
+  - ZR: 30kb
+  - ZED:25kb
+
+### Features
+* 将 Telink BSD license替换为 Apache 2.0 license。([43aa6dc2](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/43aa6dc2fdf59f599a1eb1d2be2f4ce7dee07a3e))
+* 更新低压检测机制。([aff6c2d1](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/aff6c2d1fefdd60a31cd168f7656ca2c9c4a1440))
+### Bug Fixes
+* 修复OTA消息处理问题。([26157426](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/26157426f2d649ff5f7d9ad5e12984b58606026b))
+* 修复预配网络密钥问题。([ffd26cba](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/ffd26cba8b9055925a4fc8b94e3c74656215acb2))
+* 修复GPPB安全问题。([2ea2a1ea](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/2ea2a1ea05b5a179593f0fb18328f88d93e20ea5))
+* 修复Truster Center rejoin机制。([b9fc3b00](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/b9fc3b002477fbc8a63c579a21e6298aee9baa34))
+### Code Refactoring
+* 清理ZCL代码。([29816110](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/298161105a5cac68f0dace08f394fbc370c8d7ee))
+* 清理HCI代码。([861240ec](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/861240ec9ebee31c53cb3d14eef543f627021dc3))
+### Performance
+* 提升网络性能和鉴权速度。([ac626730](http://192.168.48.36/src/zigbee/telink_zigbee_src/commit/ac626730c2dc973ac4cbbda7c4feaffcdee64335))
+### BREAKING CHANGES
+* N/A
+
+### CodeSize
+* Flash:
+  - ZC: 165kb
+  - ZR: 187kb
+  - ZED:127kb
+* RAM:
+  - ZC: 33kb
+  - ZR: 30kb
+  - ZED:25kb
+
+
 ## V3.6.6.0
 
 ### Features

@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	drv_hw.c
+ * @file    drv_hw.c
  *
- * @brief	This is the source file for drv_hw
+ * @brief   This is the source file for drv_hw
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 #include "../tl_common.h"
 
 /*
@@ -74,11 +54,9 @@
 	#endif
 #endif
 
-#define BATTERY_SAFETY_THRESHOLD	2200   //2.2v
 
 //system ticks per US
 u32 sysTimerPerUs;
-
 
 
 static void randInit(void)
@@ -106,61 +84,85 @@ static void internalFlashSizeCheck(void){
 	u32 mid = flash_read_mid();
 	u8 *pMid = (u8 *)&mid;
 
-	if( (pMid[2] < FLASH_SIZE_512K) ||
-		((g_u32MacFlashAddr == FLASH_ADDR_0F_MAC_ADDR_1M) && (pMid[2] < FLASH_SIZE_1M)) ){
+	if( (pMid[2] < FLASH_SIZE_512K) || \
+		((g_u32MacFlashAddr == FLASH_ADDR_OF_MAC_ADDR_1M) && (pMid[2] < FLASH_SIZE_1M)) || \
+		((g_u32MacFlashAddr == FLASH_ADDR_OF_MAC_ADDR_2M) && (pMid[2] < FLASH_SIZE_2M)) || \
+		((g_u32MacFlashAddr == FLASH_ADDR_OF_MAC_ADDR_4M) && (pMid[2] < FLASH_SIZE_4M))){
 		/* Flash space not matched. */
 		while(1);
 	}
 
-	if( (g_u32MacFlashAddr == FLASH_ADDR_OF_MAC_ADDR_512K) && (pMid[2] >= FLASH_SIZE_1M) ){
-		g_u32MacFlashAddr = FLASH_ADDR_0F_MAC_ADDR_1M;
-		g_u32CfgFlashAddr = FLASH_ADDR_OF_F_CFG_INFO_1M;
+	switch(pMid[2]){
+		case FLASH_SIZE_1M:
+			g_u32MacFlashAddr = FLASH_ADDR_OF_MAC_ADDR_1M;
+			g_u32CfgFlashAddr = FLASH_ADDR_OF_F_CFG_INFO_1M;
+			break;
+		case FLASH_SIZE_2M:
+			g_u32MacFlashAddr = FLASH_ADDR_OF_MAC_ADDR_2M;
+			g_u32CfgFlashAddr = FLASH_ADDR_OF_F_CFG_INFO_2M;
+			break;
+		case FLASH_SIZE_4M:
+			g_u32MacFlashAddr = FLASH_ADDR_OF_MAC_ADDR_4M;
+			g_u32CfgFlashAddr = FLASH_ADDR_OF_F_CFG_INFO_4M;
+			break;
+		default:
+			break;
 	}
 #endif
 }
 
-static void voltage_detect_init(void)
+
+static void voltage_detect_init(u32 detectPin)
 {
 	drv_adc_init();
 
 #if defined(MCU_CORE_826x)
+	(void)detectPin;
 	drv_adc_mode_pin_set(DRV_ADC_VBAT_MODE, NOINPUT);
 #elif defined(MCU_CORE_8258) || defined(MCU_CORE_8278)
-	drv_adc_mode_pin_set(DRV_ADC_VBAT_MODE, GPIO_PC5);
+	drv_adc_mode_pin_set(DRV_ADC_VBAT_MODE, (GPIO_PinTypeDef)detectPin);
 #elif defined(MCU_CORE_B91)
-	drv_adc_mode_pin_set(DRV_ADC_BASE_MODE, ADC_GPIO_PB0);
+	drv_adc_mode_pin_set(DRV_ADC_BASE_MODE, (adc_input_pin_def_e)detectPin);
 #endif
 
 	drv_adc_enable(1);
 }
 
-void voltage_detect(void)
-{
-#if defined(MCU_CORE_B91)
-	//EVK board and dongle do not support.
-	return;
-#endif
 
+#if VOLTAGE_DETECT_ENABLE
+#define VOLTAGE_DEBOUNCE_NUM 	5
+void voltage_detect(bool powerOn)
+{
 	u16 voltage = drv_get_adc_data();
 	u32 curTick = clock_time();
+	s32 debounceNum = VOLTAGE_DEBOUNCE_NUM;
 
 	//printf("VDD: %d\n", voltage);
+	if(powerOn || voltage < BATTERY_SAFETY_THRESHOLD){
+		while(debounceNum > 0){
+			if(voltage > BATTERY_SAFETY_THRESHOLD){
+				debounceNum--;
+			}else{
+				debounceNum = VOLTAGE_DEBOUNCE_NUM;
+			}
 
-	while(voltage < BATTERY_SAFETY_THRESHOLD){
-		if(clock_time_exceed(curTick, 1000 * 1000)){
+			if(clock_time_exceed(curTick, 1000 * 1000)){
 #if PM_ENABLE
-			drv_pm_sleep(PM_SLEEP_MODE_DEEPSLEEP, 0, 0);
+				drv_pm_sleep(PM_SLEEP_MODE_DEEPSLEEP, 0, 0);
 #else
-			SYSTEM_RESET();
+				SYSTEM_RESET();
 #endif
+			}
+
+			voltage = drv_get_adc_data();
 		}
-		voltage = drv_get_adc_data();
 	}
 }
+#endif
 
 static startup_state_e platform_wakeup_init(void)
 {
-	startup_state_e state = SYSTEM_RETENTION_NONE;
+	startup_state_e state = SYSTEM_BOOT;
 
 #if defined(MCU_CORE_826x) || defined(MCU_CORE_8258)
 	cpu_wakeup_init();
@@ -172,10 +174,15 @@ static startup_state_e platform_wakeup_init(void)
 
 #if defined(MCU_CORE_826x)
 	//826x not support ram retention.
+	state = (pm_mcu_status == MCU_STATUS_DEEP_BACK) ? SYSTEM_DEEP : SYSTEM_BOOT;
 #elif defined(MCU_CORE_8258) || defined(MCU_CORE_8278)
-	state = (pm_get_mcu_status() == MCU_STATUS_DEEPRET_BACK) ? SYSTEM_RETENTION_EN : SYSTEM_RETENTION_NONE;
+	state = (startup_state_e)pm_get_mcu_status();
 #elif defined(MCU_CORE_B91)
-	state = (g_pm_status_info.mcu_status == MCU_STATUS_DEEPRET_BACK) ? SYSTEM_RETENTION_EN : SYSTEM_RETENTION_NONE;
+	if(g_pm_status_info.mcu_status == MCU_STATUS_DEEPRET_BACK){
+		state = SYSTEM_DEEP_RETENTION;
+	}else if(g_pm_status_info.mcu_status == MCU_STATUS_DEEP_BACK){
+		state = SYSTEM_DEEP;
+	}
 #endif
 
 	return state;
@@ -186,8 +193,7 @@ static startup_state_e platform_wakeup_init(void)
 *
 * @param[in] 	none
 *
-* @return	  	1: startup with ram retention;
-*             	0: no ram retention.
+* @return	  	startup_state_e.
 */
 startup_state_e drv_platform_init(void)
 {
@@ -214,7 +220,7 @@ startup_state_e drv_platform_init(void)
 	DEBUG_TX_PIN_INIT();
 #endif
 
-	if(state == SYSTEM_RETENTION_NONE){
+	if(state != SYSTEM_DEEP_RETENTION){
 		randInit();
 		internalFlashSizeCheck();
 #if PM_ENABLE
@@ -226,13 +232,30 @@ startup_state_e drv_platform_init(void)
 #endif
 	}
 
+	/* ADC */
 #if VOLTAGE_DETECT_ENABLE
-	voltage_detect_init();
+	voltage_detect_init(VOLTAGE_DETECT_ADC_PIN);
+
+	voltage_detect((state == SYSTEM_BOOT) ? 1 : 0);
 #endif
 
+	/* RF */
 	ZB_RADIO_INIT();
-
 	ZB_TIMER_INIT();
+
+	/* Get calibration info to improve performance */
+	drv_calibration();
+
+#if defined(MCU_CORE_8258)
+	if(flash_is_zb()){
+
+#if (!VOLTAGE_DETECT_ENABLE) || !defined(VOLTAGE_DETECT_ENABLE)
+		voltage_detect_init(VOLTAGE_DETECT_ADC_PIN);
+		flash_safe_voltage_set(BATTERY_SAFETY_THRESHOLD);
+#endif
+		flash_unlock_mid13325e();  //add it for the flash which sr is expired
+	}
+#endif
 
 	return state;
 }

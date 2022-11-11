@@ -1,48 +1,28 @@
 /********************************************************************************************************
- * @file	zcl_zllTouchLinkJoinOrStart.c
+ * @file    zcl_zllTouchLinkJoinOrStart.c
  *
- * @brief	This is the source file for zcl_zllTouchLinkDiscovery
+ * @brief   This is the source file for zcl_zllTouchLinkDiscovery
  *
- * @author	Zigbee Group
- * @date	2019
+ * @author  Zigbee Group
+ * @date    2021
  *
- * @par     Copyright (c) 2019, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
+ * @par     Copyright (c) 2021, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
  *          All rights reserved.
  *
- *          Redistribution and use in source and binary forms, with or without
- *          modification, are permitted provided that the following conditions are met:
+ *          Licensed under the Apache License, Version 2.0 (the "License");
+ *          you may not use this file except in compliance with the License.
+ *          You may obtain a copy of the License at
  *
- *              1. Redistributions of source code must retain the above copyright
- *              notice, this list of conditions and the following disclaimer.
+ *              http://www.apache.org/licenses/LICENSE-2.0
  *
- *              2. Unless for usage inside a TELINK integrated circuit, redistributions
- *              in binary form must reproduce the above copyright notice, this list of
- *              conditions and the following disclaimer in the documentation and/or other
- *              materials provided with the distribution.
- *
- *              3. Neither the name of TELINK, nor the names of its contributors may be
- *              used to endorse or promote products derived from this software without
- *              specific prior written permission.
- *
- *              4. This software, with or without modification, must only be used with a
- *              TELINK integrated circuit. All other usages are subject to written permission
- *              from TELINK and different commercial license may apply.
- *
- *              5. Licensee shall be solely responsible for any claim to the extent arising out of or
- *              relating to such deletion(s), modification(s) or alteration(s).
- *
- *          THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- *          ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- *          WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *          DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER BE LIABLE FOR ANY
- *          DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- *          (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *          LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- *          ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- *          (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- *          SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *          Unless required by applicable law or agreed to in writing, software
+ *          distributed under the License is distributed on an "AS IS" BASIS,
+ *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *          See the License for the specific language governing permissions and
+ *          limitations under the License.
  *
  *******************************************************************************************************/
+
 /**********************************************************************
  * INCLUDES
  */
@@ -59,10 +39,16 @@ _CODE_ZCL_ static void zcl_zllTouchLinNetworkStartRespCmdSend(void *arg);
  * @param 	arg
  *
  */
-_CODE_ZCL_ void tl_zbNwkZllCommissionScanConfirm(void *arg){
+_CODE_ZCL_ void tl_zbNwkZllCommissionScanConfirm(void){
 	u8 channel = 0xff;
 	u8 panNumOnChannel[16] = {0};
 	u8 nodesOnChannel = 0xff;
+
+	//printf("zllScanCnf: state = %x\n", g_zllTouchLink.state);
+
+	if(g_zllTouchLink.state != ZCL_ZLL_COMMISSION_STATE_TOUCHLINK_DISCOVERY){
+		return;
+	}
 
 	u32 i = 0;
 	u8  neighborNum = tl_zbAdditionNeighborTableNumGet();
@@ -153,17 +139,19 @@ _CODE_ZCL_ void tl_zbNwkZllCommissionScanConfirm(void *arg){
 
 /* NWK-discovery */
 static void touchlink_discovery_network(u32 chanMask){
-	nlme_nwkDisc_req_t req;
-	TL_SETSTRUCTCONTENT(req,0);
+	u32 scanChannels;
+	u8 scanDuration;
+
 	if(0 == chanMask){
-		req.scanChannels = BDB_ATTR().primaryChannelSet;
+		scanChannels = BDB_ATTR().primaryChannelSet;
 	}else{
-		req.scanChannels = chanMask;
+		scanChannels = chanMask;
 	}
-	req.scanDuration = BDB_ATTR().scanDuration;
+	scanDuration = BDB_ATTR().scanDuration;
 
 	g_zllTouchLink.scanChanMask = chanMask;
-	zb_nwkDiscReq(&req, NLME_STATE_ZLL_COMMISSION);
+
+	zb_nwkDiscovery(scanChannels, scanDuration, tl_zbNwkZllCommissionScanConfirm);
 }
 
 
@@ -227,10 +215,10 @@ _CODE_ZCL_ void zcl_zllTouchLinkNetworkStartDirectJoin(void *arg){
 			nlme_directJoin_req_t req;
 			req.nwkAddr = pInitiator->initiatorNwkAddr;
 			memcpy(req.deviceAddr, pInitiator->initiatorIeeeAddr , 8);
-			req.capabilityInfo.devType = (g_zllTouchLink.zbInfo.bf.logicDevType & 0x02) ? 0 : 1;;
+			req.capabilityInfo.devType = (g_zllTouchLink.zbInfo.bf.logicDevType & 0x02) ? 0 : 1;
 			req.capabilityInfo.rcvOnWhenIdle = g_zllTouchLink.zbInfo.bf.rxOnWihleIdle;
 
-			if(zb_nwkDirectJoin(req) != RET_OK){
+			if(zb_nwkDirectJoinAccept(&req) != RET_OK){
 				if(g_zllTouchLink.state != ZCL_ZLL_COMMISSION_STATE_IDLE){
 					zcl_zllTouchLinkFinish(ZCL_ZLL_TOUCH_LINK_FAIL);
 				}
@@ -330,8 +318,8 @@ _CODE_ZCL_ static void zcl_zllTouchLinkNetworkJoinRealjoin(void){
 	if(af_nodeDevTypeGet() == DEVICE_TYPE_END_DEVICE){
 		aps_ib.aps_authenticated = 1;
 		MAC_IB().rxOnWhenIdle = g_zllTouchLink.zbInfo.bf.rxOnWihleIdle;
-		zb_rejoin_mode_set(REJOIN_SECURITY);
-		zdo_nwk_rejoin_req(NLME_REJOIN_METHOD_REJOIN, (1 << MAC_IB().phyChannelCur));
+		zb_rejoinSecModeSet(REJOIN_SECURITY);
+		zb_rejoinReq(1 << g_zbMacPib.phyChannelCur, zdo_cfg_attributes.config_nwk_scan_duration);
 	}else if(af_nodeDevTypeGet() == DEVICE_TYPE_ROUTER){
 		/* router start */
 		zb_routerStart();
@@ -484,9 +472,9 @@ _CODE_ZCL_ s32 zcl_zllTouchLinkNetworkStartResponseHandler(void *arg){
 	zcl_zllTouchLinkNetworkStartResp_t *p = (zcl_zllTouchLinkNetworkStartResp_t *)arg;
 	if(p->status == SUCCESS){
 		/* security join */
-		MAC_IB().rxOnWhenIdle = g_zllTouchLink.zbInfo.bf.rxOnWihleIdle;
-		zb_rejoin_mode_set(REJOIN_SECURITY);
-		zdo_nwk_rejoin_req(NLME_REJOIN_METHOD_REJOIN, 1<<(p->logicalChannel));
+		g_zbMacPib.rxOnWhenIdle = g_zllTouchLink.zbInfo.bf.rxOnWihleIdle;
+		zb_rejoinSecModeSet(REJOIN_SECURITY);
+		zb_rejoinReq(1 << (p->logicalChannel), zdo_cfg_attributes.config_nwk_scan_duration);
 	}else{
 		zcl_zllTouchLinkFinish(ZCL_ZLL_TOUCH_LINK_STA_NO_SERVER);
 	}
