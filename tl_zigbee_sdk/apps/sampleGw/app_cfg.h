@@ -43,11 +43,11 @@ extern "C" {
 #define PA_ENABLE						0
 
 /* Debug mode */
-#define	UART_PRINTF_MODE				0
+#define	UART_PRINTF_MODE				1
 #define USB_PRINTF_MODE         		0
 
 /* HCI interface */
-#define	ZBHCI_UART						0
+#define	ZBHCI_UART						1
 #define ZBHCI_USB_CDC					0
 #define ZBHCI_USB_HID					0
 

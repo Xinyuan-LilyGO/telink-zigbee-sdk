@@ -146,6 +146,7 @@ void zbdemo_bdbInitCb(u8 status, u8 joinedNetwork){
  * @return  None
  */
 void zbdemo_bdbCommissioningCb(u8 status, void *arg){
+	u8 Buf[1] = { 0 };
 	//printf("bdbCommCb: sta = %x\n", status);
 
 	if(status == BDB_COMMISSION_STA_SUCCESS){
@@ -172,7 +173,7 @@ void zbdemo_bdbCommissioningCb(u8 status, void *arg){
 
 	}else if(status == BDB_COMMISSION_STA_FORMATION_DONE){
 #if ZBHCI_EN
-
+		zbhciTx(ZBHCI_CMD_BDB_COMMISSION_FORMATION_RSP, 1, Buf);
 #else
 		/* If you comment out the channel setting,
 		 * this demo will automatically select a channel,

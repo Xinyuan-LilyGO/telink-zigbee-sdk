@@ -1,4 +1,5 @@
 .settings
+bootLoader_*
 factory_test*
 sampleGW_*
 sampleSwitch_*
@@ -6,3 +7,5 @@ boot.link
 sampleContactSensor_*
 sampleLight_*
 hciDevice*
+hciZE_*
+hciZR_*

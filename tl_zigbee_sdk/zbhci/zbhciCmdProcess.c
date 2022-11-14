@@ -75,7 +75,7 @@ extern void zbhci_clusterSceneHandle(void *arg);
 extern void zbhci_clusterOTAHandle(void *arg);
 extern void zbhci_clusterBasicHandle(void *arg);
 extern void zbhci_clusterCommonCmdHandle(void *arg);
-
+extern void zbhci_afCmdHandle(void *arg);
 
 /**********************************************************************
  * FUNCTIONS
@@ -432,7 +432,9 @@ void zbhciAfDataCnfPush(void *arg){
 
 
 void zbhciAppDataSendConfirmPush(void *arg){
+#if ZB_COORDINATOR_ROLE
 	apsdeDataConf_t *pApsDataCnf = (apsdeDataConf_t *)arg;
+#endif
 
 #if ZB_COORDINATOR_ROLE
 #if 0
@@ -584,6 +586,38 @@ static void zbhci_bdbCmdHandler(void *arg){
 }
 
 
+static void zbhci_appCmdHandler(void *arg){
+	zbhci_cmdHandler_t *cmdInfo = arg;
+	u16 cmdID = cmdInfo->cmdId;
+	u8 array[64];
+	u8 *pBuf = array;
+	memset(array, 0, 64);
+
+	if(cmdID == ZBHCI_CMD_NETWORK_STATE_REQ){
+		printf("ZBHCI_CMD_NETWORK_STATE_REQ\n");
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.nwkAddr);
+
+		memcpy(pBuf, g_zbInfo.nwkNib.ieeeAddr, 8);
+		ZB_LEBESWAP(pBuf, 8);
+		pBuf += 8;
+
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
+		*pBuf++ = HI_UINT16(g_zbInfo.nwkNib.panId);
+
+		memcpy(pBuf, g_zbInfo.nwkNib.extPANId, 8);
+		ZB_LEBESWAP(pBuf, 8);
+		pBuf += 8;
+
+		*pBuf++ = g_zbInfo.macPib.phyChannelCur;
+
+		zbhciTx(ZBHCI_CMD_NETWORK_STATE_RSP, pBuf - array, array);
+	}
+
+	ev_buf_free(arg);
+}
+
+
 static void zbhci_discoveryCmdHandler(void *arg){
 	zbhci_cmdHandler_t *cmdInfo = arg;
 	u16 cmdID = cmdInfo->cmdId;
@@ -728,6 +762,7 @@ static void zbhci_bindCmdHandler(void *arg){
 }
 
 
+#if ZB_COORDINATOR_ROLE
 s32 node_toggle_unicast_test(void *arg){
 	u32 mode = (u32)arg;
 
@@ -783,6 +818,7 @@ s32 node_toggle_unicast_test(void *arg){
 
 	return 0;
 }
+#endif
 
 s32 node_toggle_broadcast_test(void *arg){
 	//u32 onOff = (u32)arg;
@@ -1152,6 +1188,9 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 				TL_SCHEDULE_TASK(zbhci_bdbCmdHandler, cmdInfo);
 				break;
 
+			case ZBHCI_CMD_NETWORK_STATE_REQ:
+				TL_SCHEDULE_TASK(zbhci_appCmdHandler, cmdInfo);
+				break;
 
 			case ZBHCI_CMD_DISCOVERY_NWK_ADDR_REQ:
 			case ZBHCI_CMD_DISCOVERY_IEEE_ADDR_REQ:
@@ -1190,6 +1229,9 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 			case ZBHCI_CMD_ZCL_ATTR_WRITE:
 			case ZBHCI_CMD_ZCL_CONFIG_REPORT:
 			case ZBHCI_CMD_ZCL_READ_REPORT_CFG:
+			case ZBHCI_CMD_ZCL_LOCAL_ATTR_READ:
+			case ZBHCI_CMD_ZCL_LOCAL_ATTR_WRITE:
+			case ZBHCI_CMD_ZCL_SEND_REPORT_CMD:
 				TL_SCHEDULE_TASK(zbhci_clusterCommonCmdHandle, cmdInfo);
 				break;
 
@@ -1252,6 +1294,10 @@ void zbhciCmdHandler(u16 msgType, u16 msgLen, u8 *p){
 			case ZBHCI_CMD_OTA_START_REQUEST:
 			case ZBHCI_CMD_OTA_BLOCK_RESPONSE:
 				TL_SCHEDULE_TASK(zbhci_uartOTAHandle, cmdInfo);
+				break;
+
+			case ZBHCI_CMD_AF_DATA_SEND:
+				TL_SCHEDULE_TASK(zbhci_afCmdHandle, cmdInfo);
 				break;
 
 			default:

@@ -551,6 +551,64 @@ void zbhci_clusterOTAHandle(void *arg){ //u16 cmdId, u8 *pCmd){
 	ev_buf_free(arg);
 }
 
+void zbhci_afCmdHandle(void *arg)
+{
+	zbhci_cmdHandler_t *cmdInfo = arg;
+	u16 cmdId = cmdInfo->cmdId;
+	u8 *payload = cmdInfo->payload;
+	u8 state = 0;
+
+	switch (cmdId) {
+		case ZBHCI_CMD_AF_DATA_SEND:
+		{
+			epInfo_t dstEpInfo;
+			u16 clusterId = 0;
+			u8 srcEp = 0;
+			u8 len = 0;
+			u8 apsCnt = 0;
+
+			TL_SETSTRUCTCONTENT(dstEpInfo, 0);
+			// addr mode
+			dstEpInfo.dstAddrMode = *payload++;
+			// addr
+			if (dstEpInfo.dstAddrMode == APS_LONG_DSTADDR_WITHEP) {
+				ZB_IEEE_ADDR_REVERT(dstEpInfo.dstAddr.extAddr, payload);
+				payload += EXT_ADDR_LEN;
+			}else if(dstEpInfo.dstAddrMode == APS_DSTADDR_EP_NOTPRESETNT){
+				//COPY_BUFFERTOU16_BE(dstEpInfo->dstAddr.shortAddr,*payload);
+				//(*payload) += sizeof(u16);
+			} else if (dstEpInfo.dstAddrMode == APS_SHORT_GROUPADDR_NOEP || \
+						dstEpInfo.dstAddrMode == APS_SHORT_DSTADDR_WITHEP) {
+				COPY_BUFFERTOU16_BE(dstEpInfo.dstAddr.shortAddr, payload);
+				payload += sizeof(u16);
+			}
+			// src Ep
+			srcEp = *payload++;
+			// dst Ep
+			dstEpInfo.dstEp = *payload++;
+			// cluster Id
+			COPY_BUFFERTOU16_BE(clusterId, payload);
+			payload += sizeof(u16);
+			// profile Id
+			COPY_BUFFERTOU16_BE(dstEpInfo.profileId, payload);
+			payload += sizeof(u16);
+			// txOptions
+			dstEpInfo.txOptions = *payload++;
+			// radius
+			dstEpInfo.radius = *payload++;
+			// data len
+			len = *payload++;
+
+			state = af_dataSend(srcEp, &dstEpInfo, clusterId, len, payload, &apsCnt);
+			printf("af_dataSend state: %d\n", state);
+		}
+		break;
+
+		default:
+		break;
+	}
+}
+
 volatile status_t basic_status = 0;
 void zbhci_clusterBasicHandle(void *arg){
 	zbhci_cmdHandler_t *cmdInfo = arg;
@@ -570,6 +628,10 @@ void zbhci_clusterCommonCmdHandle(void *arg){
 	zbhci_cmdHandler_t *cmdInfo = arg;
 	u16 cmdId = cmdInfo->cmdId;
 	u8 *pCmd = cmdInfo->payload;
+
+	u8 array[64] = { 0 };
+	u16 dataLen = 0;
+	u8 *pBuf = array;
 
 	epInfo_t dstEpInfo;
 	u8 srcEp;
@@ -732,6 +794,68 @@ void zbhci_clusterCommonCmdHandle(void *arg){
 
 			ev_buf_free((u8 *)pReadReportCfgCmd);
 		}
+	} else if (cmdId == ZBHCI_CMD_ZCL_LOCAL_ATTR_READ) {
+		u8 *payload = cmdInfo->payload;
+		zclAttrInfo_t *pAttrEntry = zcl_findAttribute(payload[0],                      // endpoint
+													payload[2] | (payload[1] << 8),   // clusterId
+													payload[4] | (payload[3] << 8)); // attrId
+		// endpoint
+		// clusterId
+		// attrId
+		memcpy(pBuf, payload, 5);
+		pBuf += 5;
+
+		if (pAttrEntry) {
+			// status
+			*pBuf++ = ZCL_STA_SUCCESS;
+			// type
+			*pBuf++ = pAttrEntry->type;
+			// len
+			dataLen = zcl_getAttrSize(pAttrEntry->type, pAttrEntry->data);
+			// data
+			memcpy(pBuf, pAttrEntry->data, dataLen);
+			if( (pAttrEntry->type != ZCL_DATA_TYPE_LONG_CHAR_STR)  && \
+				(pAttrEntry->type != ZCL_DATA_TYPE_LONG_OCTET_STR) && \
+				(pAttrEntry->type != ZCL_DATA_TYPE_CHAR_STR)       && \
+				(pAttrEntry->type != ZCL_DATA_TYPE_OCTET_STR)      && \
+				(pAttrEntry->type != ZCL_DATA_TYPE_STRUCT) ) {
+					ZB_LEBESWAP(pBuf, dataLen);
+			}
+			pBuf += dataLen;
+		} else {
+			// status
+			*pBuf++ = ZCL_STA_NOT_FOUND;
+		}
+		zbhciTx(ZBHCI_CMD_ZCL_LOCAL_ATTR_READ_RSP, pBuf - array, array);
+	} else if (cmdId == ZBHCI_CMD_ZCL_LOCAL_ATTR_WRITE) {
+		u8 *payload = cmdInfo->payload;
+		status_t status = zcl_setAttrVal(payload[0],                     // endpoint
+										payload[2] | (payload[1] << 8),  // clusterId
+										payload[4] | (payload[3] << 8), // attrId
+										&payload[5]);                   // val
+		// endpoint
+		// clusterId
+		// attrId
+		memcpy(pBuf, payload, 5);
+		pBuf += 5;
+		*pBuf++ = status;
+		zbhciTx(ZBHCI_CMD_ZCL_LOCAL_ATTR_WRITE_RSP, pBuf - array, array);
+	} else if (cmdId == ZBHCI_CMD_ZCL_SEND_REPORT_CMD) {
+		u8 *payload = cmdInfo->payload;
+		zbhciTxClusterCmdAddrResolve(&dstEpInfo, &srcEp, &payload);
+		u8 disableDefaultRsp = *payload++;
+		// direction
+		u8 direction = *payload++;
+		// clusterId
+		u16 clusterId = BUILD_U16(payload[1], payload[0]);
+		payload += 2;
+		// attrID
+		u16 attrID = BUILD_U16(payload[1], payload[0]);
+		payload += 2;
+		// dataType
+		u8 dataType = *payload++;
+		// pData
+		zcl_sendReportCmd(srcEp, &dstEpInfo, disableDefaultRsp, direction, clusterId, attrID, dataType, payload);
 	}
 
 	ev_buf_free(arg);

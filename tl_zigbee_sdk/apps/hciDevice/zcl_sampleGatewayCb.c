@@ -1129,7 +1129,7 @@ static status_t sampleGW_zclPollCtrlChkInCmdHandler(zclIncomingAddrInfo_t *pAddr
 	checkInRsp.startFastPolling = FALSE;
 	checkInRsp.fastPollTimeout = 0;
 
-	zcl_pollCtrl_chkInRspCmd(SAMPLE_GW_ENDPOINT, &dstEpInfo, TRUE, &checkInRsp);
+	zcl_pollCtrl_chkInRspCmd(SAMPLE_GW_ENDPOINT, &dstEpInfo, TRUE, pAddrInfo->seqNum, &checkInRsp);
 
 	return ZCL_STA_CMD_HAS_RESP;
 }
