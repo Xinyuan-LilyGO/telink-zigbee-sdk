@@ -131,8 +131,3 @@
 	#endif
 #endif
 
-#if (SECURITY_ENABLE)
-    #define ZB_SECURITY
-#endif
-
-

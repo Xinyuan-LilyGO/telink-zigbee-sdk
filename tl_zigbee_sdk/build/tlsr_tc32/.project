@@ -141,9 +141,9 @@
 			<locationURI>PARENT-2-PROJECT_LOC/apps/sampleSwitch</locationURI>
 		</link>
 		<link>
-			<name>apps/factory_test</name>
+			<name>apps/factoryTest</name>
 			<type>2</type>
-			<locationURI>PARENT-2-PROJECT_LOC/apps/factory_test</locationURI>
+			<locationURI>PARENT-2-PROJECT_LOC/apps/factoryTest</locationURI>
 		</link>
 		<link>
 			<name>apps/hciDevice</name>
